@@ -5,85 +5,67 @@ import { DEFAULT_SCORING } from '../constants/storage'
 
 export default function Admin() {
   const {
-    session, realResults, setRealResult,
+    session,
+    realResults, setRealResult,
     realQualifiers, setRealQualifiersData,
     knockoutData, setKnockoutMatch,
     scoring, updateScoring,
   } = useApp()
 
   const [activeSection, setActiveSection] = useState('results')
-  const [localScoring, setLocalScoring]   = useState({ ...scoring })
-  const [savedScoring, setSavedScoring]   = useState(false)
+  const [localScoring,  setLocalScoring]  = useState({ ...scoring })
+  const [savedScoring,  setSavedScoring]  = useState(false)
+
+  // Local override state for form inputs (empty = fallback to context value)
+  const [resultInputs, setResultInputs] = useState({})
+  const [knockInputs,  setKnockInputs]  = useState({})
 
   // ── Resultados reales ─────────────────────────────────
-  const [resultInputs, setResultInputs] = useState(() => {
-    const init = {}
-    for (const m of GROUP_MATCHES) {
-      init[m.id] = {
-        home: realResults[m.id]?.home ?? '',
-        away: realResults[m.id]?.away ?? '',
-      }
-    }
-    return init
-  })
-
-  const saveResult = (matchId) => {
-    const { home, away } = resultInputs[matchId]
+  const saveResult = async (matchId) => {
+    const inp  = resultInputs[matchId] || {}
+    const home = inp.home ?? realResults[matchId]?.home?.toString() ?? ''
+    const away = inp.away ?? realResults[matchId]?.away?.toString() ?? ''
     if (home === '' || away === '') return
-    setRealResult(matchId, parseInt(home), parseInt(away), session)
+    await setRealResult(matchId, parseInt(home), parseInt(away), session)
   }
 
   // ── Clasificados reales ───────────────────────────────
-  const toggleRealQualifier = (country) => {
-    let next
-    if (realQualifiers.includes(country)) {
-      next = realQualifiers.filter(c => c !== country)
-    } else {
-      if (realQualifiers.length >= 32) return
-      next = [...realQualifiers, country]
-    }
-    setRealQualifiersData(next, session)
+  const toggleRealQualifier = async (country) => {
+    const isSelected = realQualifiers.includes(country)
+    if (!isSelected && realQualifiers.length >= 32) return
+    const next = isSelected
+      ? realQualifiers.filter(c => c !== country)
+      : [...realQualifiers, country]
+    await setRealQualifiersData(next, session)
   }
 
   // ── Eliminación directa ───────────────────────────────
-  const [knockInputs, setKnockInputs] = useState(() => {
-    const init = {}
-    for (const round of KNOCKOUT_ROUNDS) {
-      for (let i = 1; i <= round.matchCount; i++) {
-        const id = `${round.id}_${i}`
-        init[id] = {
-          home:      knockoutData[id]?.home ?? '',
-          away:      knockoutData[id]?.away ?? '',
-          homeGoals: knockoutData[id]?.homeGoals ?? '',
-          awayGoals: knockoutData[id]?.awayGoals ?? '',
-          winner:    knockoutData[id]?.winner ?? '',
-        }
-      }
-    }
-    return init
-  })
+  const saveKnockMatch = async (matchId) => {
+    const kd    = knockoutData[matchId]
+    const inp   = knockInputs[matchId] || {}
+    const home  = inp.home      ?? kd?.home      ?? ''
+    const away  = inp.away      ?? kd?.away      ?? ''
+    if (!home || !away) return
 
-  const saveKnockMatch = (matchId) => {
-    const d = knockInputs[matchId]
-    if (!d.home || !d.away) return
     const data = {
-      home: d.home, away: d.away,
-      ...(d.homeGoals !== '' ? { homeGoals: parseInt(d.homeGoals) } : {}),
-      ...(d.awayGoals !== '' ? { awayGoals: parseInt(d.awayGoals) } : {}),
-      ...(d.winner    ? { winner: d.winner } : {}),
+      home,
+      away,
+      ...(inp.homeGoals != null ? { homeGoals: inp.homeGoals } : kd?.homeGoals != null ? { homeGoals: kd.homeGoals } : {}),
+      ...(inp.awayGoals != null ? { awayGoals: inp.awayGoals } : kd?.awayGoals != null ? { awayGoals: kd.awayGoals } : {}),
+      winner: inp.winner ?? kd?.winner ?? '',
     }
-    // Si es la final, guardar campeón y subcampeón
-    if (matchId === 'F_1' && d.winner) {
-      const runnerUp = d.winner === d.home ? d.away : d.home
-      setKnockoutMatch('F_winner',    d.winner,  session)
-      setKnockoutMatch('F_runner_up', runnerUp,  session)
+
+    if (matchId === 'F_1' && data.winner) {
+      const runnerUp = data.winner === data.home ? data.away : data.home
+      await setKnockoutMatch('F_winner',    data.winner, session)
+      await setKnockoutMatch('F_runner_up', runnerUp,    session)
     }
-    setKnockoutMatch(matchId, data, session)
+    await setKnockoutMatch(matchId, data, session)
   }
 
   // ── Puntuación ────────────────────────────────────────
-  const saveScoring = () => {
-    updateScoring(localScoring, session)
+  const saveScoring = async () => {
+    await updateScoring(localScoring, session)
     setSavedScoring(true)
     setTimeout(() => setSavedScoring(false), 2000)
   }
@@ -126,21 +108,23 @@ export default function Admin() {
                 <div className="space-y-2">
                   {matches.map(m => {
                     const saved = realResults[m.id]
-                    const inp   = resultInputs[m.id] || { home: '', away: '' }
+                    const inp   = resultInputs[m.id] || {}
+                    const displayHome = inp.home ?? saved?.home?.toString() ?? ''
+                    const displayAway = inp.away ?? saved?.away?.toString() ?? ''
                     return (
                       <div key={m.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
                         <span className="flex-1 text-right text-sm font-medium text-gray-800">{m.home}</span>
                         <input
                           type="number" min="0" max="20"
-                          value={inp.home}
-                          onChange={e => setResultInputs(prev => ({ ...prev, [m.id]: { ...prev[m.id], home: e.target.value }}))}
+                          value={displayHome}
+                          onChange={e => setResultInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), home: e.target.value }}))}
                           className="w-12 text-center border border-amber-300 rounded px-1 py-0.5 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400"
                         />
                         <span className="text-gray-400 text-xs">-</span>
                         <input
                           type="number" min="0" max="20"
-                          value={inp.away}
-                          onChange={e => setResultInputs(prev => ({ ...prev, [m.id]: { ...prev[m.id], away: e.target.value }}))}
+                          value={displayAway}
+                          onChange={e => setResultInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), away: e.target.value }}))}
                           className="w-12 text-center border border-amber-300 rounded px-1 py-0.5 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400"
                         />
                         <span className="flex-1 text-sm font-medium text-gray-800">{m.away}</span>
@@ -181,7 +165,8 @@ export default function Admin() {
                   return (
                     <button
                       key={country}
-                      onClick={() => !disabled && toggleRealQualifier(country)}
+                      onClick={() => toggleRealQualifier(country)}
+                      disabled={disabled}
                       className={`text-sm px-3 py-1 rounded-full border transition-all ${
                         selected
                           ? 'bg-amber-500 text-white border-amber-500'
@@ -209,17 +194,22 @@ export default function Admin() {
               <div className="space-y-4">
                 {Array.from({ length: round.matchCount }, (_, i) => {
                   const matchId = `${round.id}_${i + 1}`
+                  const kd      = knockoutData[matchId]
                   const inp     = knockInputs[matchId] || {}
-                  const saved   = knockoutData[matchId]
+                  const displayHome      = inp.home      ?? kd?.home      ?? ''
+                  const displayAway      = inp.away      ?? kd?.away      ?? ''
+                  const displayHomeGoals = inp.homeGoals ?? kd?.homeGoals?.toString() ?? ''
+                  const displayAwayGoals = inp.awayGoals ?? kd?.awayGoals?.toString() ?? ''
+                  const displayWinner    = inp.winner    ?? kd?.winner    ?? ''
+                  const update = (field, val) => setKnockInputs(prev => ({ ...prev, [matchId]: { ...(prev[matchId] || {}), [field]: val } }))
                   return (
                     <div key={matchId} className="bg-gray-50 rounded-xl p-3 space-y-2">
                       <div className="text-xs text-gray-400 font-medium">Llave {i + 1}</div>
 
-                      {/* Equipos */}
                       <div className="flex gap-2 items-center">
                         <select
-                          value={inp.home || ''}
-                          onChange={e => setKnockInputs(prev => ({ ...prev, [matchId]: { ...prev[matchId], home: e.target.value }}))}
+                          value={displayHome}
+                          onChange={e => update('home', e.target.value)}
                           className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
                         >
                           <option value="">Local</option>
@@ -227,46 +217,44 @@ export default function Admin() {
                         </select>
                         <span className="text-gray-400 text-xs">vs</span>
                         <select
-                          value={inp.away || ''}
-                          onChange={e => setKnockInputs(prev => ({ ...prev, [matchId]: { ...prev[matchId], away: e.target.value }}))}
+                          value={displayAway}
+                          onChange={e => update('away', e.target.value)}
                           className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
                         >
                           <option value="">Visitante</option>
-                          {ALL_COUNTRIES.filter(c => c !== inp.home).map(c => <option key={c} value={c}>{c}</option>)}
+                          {ALL_COUNTRIES.filter(c => c !== displayHome).map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </div>
 
-                      {/* Resultado 90' */}
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 w-16 shrink-0">Resultado 90':</span>
                         <input
                           type="number" min="0" max="20"
-                          value={inp.homeGoals ?? ''}
-                          onChange={e => setKnockInputs(prev => ({ ...prev, [matchId]: { ...prev[matchId], homeGoals: e.target.value }}))}
+                          value={displayHomeGoals}
+                          onChange={e => update('homeGoals', e.target.value)}
                           placeholder="?"
                           className="w-12 text-center border border-amber-300 rounded px-1 py-0.5 text-sm font-bold focus:outline-none"
                         />
                         <span className="text-gray-400 text-xs">-</span>
                         <input
                           type="number" min="0" max="20"
-                          value={inp.awayGoals ?? ''}
-                          onChange={e => setKnockInputs(prev => ({ ...prev, [matchId]: { ...prev[matchId], awayGoals: e.target.value }}))}
+                          value={displayAwayGoals}
+                          onChange={e => update('awayGoals', e.target.value)}
                           placeholder="?"
                           className="w-12 text-center border border-amber-300 rounded px-1 py-0.5 text-sm font-bold focus:outline-none"
                         />
                       </div>
 
-                      {/* Quién pasa */}
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 w-16 shrink-0">Quién pasa:</span>
                         <select
-                          value={inp.winner || ''}
-                          onChange={e => setKnockInputs(prev => ({ ...prev, [matchId]: { ...prev[matchId], winner: e.target.value }}))}
+                          value={displayWinner}
+                          onChange={e => update('winner', e.target.value)}
                           className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
                         >
                           <option value="">— Seleccioná —</option>
-                          {inp.home && <option value={inp.home}>{inp.home}</option>}
-                          {inp.away && <option value={inp.away}>{inp.away}</option>}
+                          {displayHome && <option value={displayHome}>{displayHome}</option>}
+                          {displayAway && <option value={displayAway}>{displayAway}</option>}
                         </select>
                       </div>
 
@@ -274,7 +262,7 @@ export default function Admin() {
                         onClick={() => saveKnockMatch(matchId)}
                         className="w-full bg-amber-500 hover:bg-amber-600 text-white text-sm py-1.5 rounded-lg transition-colors font-medium"
                       >
-                        {saved ? '✓ Guardado' : 'Guardar llave'}
+                        {kd ? '✓ Actualizar llave' : 'Guardar llave'}
                       </button>
                     </div>
                   )
@@ -289,7 +277,6 @@ export default function Admin() {
       {activeSection === 'scoring' && (
         <div className="bg-white rounded-2xl shadow p-5">
           <h2 className="text-base font-bold text-gray-800 mb-4">Configuración de Puntuación</h2>
-
           <div className="space-y-3">
             {[
               { key: 'exactResult',    label: 'Ganador o empate (grupos)',         icon: '⚽' },
@@ -303,9 +290,7 @@ export default function Admin() {
                 <span className="text-xl">{icon}</span>
                 <span className="flex-1 text-sm font-medium text-gray-700">{label}</span>
                 <input
-                  type="number"
-                  min="0"
-                  max="100"
+                  type="number" min="0" max="100"
                   value={localScoring[key]}
                   onChange={e => setLocalScoring(prev => ({ ...prev, [key]: parseInt(e.target.value) || 0 }))}
                   className="w-16 text-center border border-amber-300 rounded-lg px-2 py-1 font-bold text-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
@@ -314,7 +299,6 @@ export default function Admin() {
               </div>
             ))}
           </div>
-
           <div className="flex gap-3 mt-5">
             <button
               onClick={() => setLocalScoring({ ...DEFAULT_SCORING })}
@@ -325,9 +309,7 @@ export default function Admin() {
             <button
               onClick={saveScoring}
               className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                savedScoring
-                  ? 'bg-green-500 text-white'
-                  : 'bg-amber-500 hover:bg-amber-600 text-white'
+                savedScoring ? 'bg-green-500 text-white' : 'bg-amber-500 hover:bg-amber-600 text-white'
               }`}
             >
               {savedScoring ? '✓ Guardado' : 'Guardar configuración'}

@@ -9,20 +9,31 @@ import Admin from './components/Admin'
 import Logs from './components/Logs'
 
 function MainApp() {
-  const { session, logout } = useApp()
+  const { session, logout, loading } = useApp()
   const [activeTab, setActiveTab] = useState('dashboard')
 
   if (!session) return <Login />
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-5xl animate-bounce mb-4">⚽</div>
+          <p className="text-gray-500 font-medium">Cargando datos...</p>
+        </div>
+      </div>
+    )
+  }
 
   const user    = USERS.find(u => u.username === session)
   const isAdmin = user?.isAdmin ?? false
 
   const tabs = [
-    { id: 'dashboard',  label: 'Dashboard', icon: '🏠' },
-    { id: 'pronosticos',label: 'Pronósticos', icon: '⚽' },
-    { id: 'reglamento', label: 'Reglamento', icon: '📋' },
+    { id: 'dashboard',   label: 'Dashboard',   icon: '🏠' },
+    { id: 'pronosticos', label: 'Pronósticos',  icon: '⚽' },
+    { id: 'reglamento',  label: 'Reglamento',   icon: '📋' },
     ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: '⚙️' }] : []),
-    { id: 'logs',       label: 'Logs', icon: '📝' },
+    { id: 'logs',        label: 'Logs',         icon: '📝' },
   ]
 
   const renderTab = () => {
@@ -38,7 +49,6 @@ function MainApp() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
       <header className="bg-green-800 text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -59,22 +69,18 @@ function MainApp() {
         </div>
       </header>
 
-      {/* Content */}
       <main className="max-w-4xl mx-auto px-4 py-4 pb-24">
         {renderTab()}
       </main>
 
-      {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
         <div className="max-w-4xl mx-auto flex">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex flex-col items-center py-2 text-xs transition-colors ${
-                activeTab === tab.id
-                  ? 'text-green-700 font-semibold'
-                  : 'text-gray-400 hover:text-gray-600'
+              className={`flex-1 flex flex-col items-center py-2 text-xs transition-colors relative ${
+                activeTab === tab.id ? 'text-green-700 font-semibold' : 'text-gray-400 hover:text-gray-600'
               }`}
             >
               <span className="text-lg leading-none mb-0.5">{tab.icon}</span>

@@ -22,7 +22,14 @@ function ScoreInput({ value, onChange, locked }) {
 }
 
 export default function MisPronósticos() {
-  const { session, getPrediction, updatePrediction, knockoutData } = useApp()
+  const {
+    session, getPrediction,
+    updateGroupPred, togglePredQualifier,
+    updateChampionPred, updateSubchampionPred,
+    updateKnockoutPred,
+    knockoutData,
+  } = useApp()
+
   const [activeSection, setActiveSection] = useState('groups')
 
   const groupPreds  = getPrediction(session, 'groups', {})
@@ -32,49 +39,26 @@ export default function MisPronósticos() {
   const knockPreds  = getPrediction(session, 'knockout', {})
 
   // ── Grupos ────────────────────────────────────────────
-  const updateGroupScore = (matchId, side, val) => {
+  const handleGroupScore = (matchId, side, val) => {
     const match = GROUP_MATCHES.find(m => m.id === matchId)
     if (isMatchLocked(match.date)) return
     const current = groupPreds[matchId] || { home: '', away: '' }
-    const updated  = { ...current, [side]: val }
-    updatePrediction(
-      session,
-      'groups',
-      { ...groupPreds, [matchId]: updated },
-      `Actualizó pronóstico de ${match.home} vs ${match.away}: ${updated.home}-${updated.away}`
-    )
+    const home = side === 'home' ? val : current.home
+    const away = side === 'away' ? val : current.away
+    updateGroupPred(session, matchId, home, away)
   }
 
   // ── Clasificados ──────────────────────────────────────
-  const toggleQualifier = (country) => {
-    let next
-    if (qualPreds.includes(country)) {
-      next = qualPreds.filter(c => c !== country)
-    } else {
-      if (qualPreds.length >= 32) return
-      next = [...qualPreds, country]
-    }
-    updatePrediction(session, 'qualifiers', next, `Actualizó clasificados a 16avos (${next.length}/32)`)
-  }
-
-  // ── Campeón / Subcampeón ──────────────────────────────
-  const updateChampion = (val) => {
-    updatePrediction(session, 'champion', val, `Actualizó campeón: ${val}`)
-  }
-  const updateSubchampion = (val) => {
-    updatePrediction(session, 'subchampion', val, `Actualizó subcampeón: ${val}`)
+  const handleToggleQualifier = (country) => {
+    const isSelected = qualPreds.includes(country)
+    if (!isSelected && qualPreds.length >= 32) return
+    togglePredQualifier(session, country, !isSelected)
   }
 
   // ── Eliminación directa ───────────────────────────────
-  const updateKnockout = (matchId, field, val) => {
+  const handleKnockoutField = (matchId, field, val) => {
     const current = knockPreds[matchId] || {}
-    const updated  = { ...current, [field]: val }
-    updatePrediction(
-      session,
-      'knockout',
-      { ...knockPreds, [matchId]: updated },
-      `Actualizó pronóstico eliminatoria ${matchId}: ${JSON.stringify(updated)}`
-    )
+    updateKnockoutPred(session, matchId, { ...current, [field]: val })
   }
 
   const sections = [
@@ -124,9 +108,9 @@ export default function MisPronósticos() {
                           {d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })} {d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         <span className="flex-1 text-right text-sm font-medium text-gray-800">{m.home}</span>
-                        <ScoreInput value={pred.home} onChange={v => updateGroupScore(m.id, 'home', v)} locked={locked} />
+                        <ScoreInput value={pred.home} onChange={v => handleGroupScore(m.id, 'home', v)} locked={locked} />
                         <span className="text-gray-400 text-xs">-</span>
-                        <ScoreInput value={pred.away} onChange={v => updateGroupScore(m.id, 'away', v)} locked={locked} />
+                        <ScoreInput value={pred.away} onChange={v => handleGroupScore(m.id, 'away', v)} locked={locked} />
                         <span className="flex-1 text-sm font-medium text-gray-800">{m.away}</span>
                         {locked && <span className="text-xs text-red-400">🔒</span>}
                       </div>
@@ -150,7 +134,7 @@ export default function MisPronósticos() {
               {qualPreds.length}/32
             </span>
           </div>
-          <p className="text-xs text-gray-500 mb-4">Seleccioná exactamente 32 países que creés que van a clasificar a la fase eliminatoria.</p>
+          <p className="text-xs text-gray-500 mb-4">Seleccioná exactamente 32 países que creés que van a clasificar.</p>
           {Object.entries(GROUPS).map(([g, teams]) => (
             <div key={g} className="mb-3">
               <div className="text-xs font-semibold text-gray-400 uppercase mb-1">Grupo {g}</div>
@@ -161,7 +145,8 @@ export default function MisPronósticos() {
                   return (
                     <button
                       key={country}
-                      onClick={() => !disabled && toggleQualifier(country)}
+                      onClick={() => handleToggleQualifier(country)}
+                      disabled={disabled}
                       className={`text-sm px-3 py-1 rounded-full border transition-all ${
                         selected
                           ? 'bg-green-600 text-white border-green-600'
@@ -187,7 +172,7 @@ export default function MisPronósticos() {
             <label className="block text-sm font-bold text-gray-700 mb-2">🥇 Campeón del Mundo</label>
             <select
               value={champion}
-              onChange={e => updateChampion(e.target.value)}
+              onChange={e => updateChampionPred(session, e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="">— Seleccioná un país —</option>
@@ -198,7 +183,7 @@ export default function MisPronósticos() {
             <label className="block text-sm font-bold text-gray-700 mb-2">🥈 Subcampeón</label>
             <select
               value={subchampion}
-              onChange={e => updateSubchampion(e.target.value)}
+              onChange={e => updateSubchampionPred(session, e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="">— Seleccioná un país —</option>
@@ -240,7 +225,7 @@ export default function MisPronósticos() {
                           <input
                             type="number" min="0" max="20"
                             value={pred.homeGoals ?? ''}
-                            onChange={e => updateKnockout(matchId, 'homeGoals', e.target.value)}
+                            onChange={e => handleKnockoutField(matchId, 'homeGoals', e.target.value)}
                             className="w-12 text-center border border-green-300 rounded px-1 py-0.5 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-green-400"
                             placeholder="?"
                           />
@@ -248,7 +233,7 @@ export default function MisPronósticos() {
                           <input
                             type="number" min="0" max="20"
                             value={pred.awayGoals ?? ''}
-                            onChange={e => updateKnockout(matchId, 'awayGoals', e.target.value)}
+                            onChange={e => handleKnockoutField(matchId, 'awayGoals', e.target.value)}
                             className="w-12 text-center border border-green-300 rounded px-1 py-0.5 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-green-400"
                             placeholder="?"
                           />
@@ -258,7 +243,7 @@ export default function MisPronósticos() {
                           <span className="text-xs text-gray-500">¿Quién pasa?</span>
                           <select
                             value={pred.winner || ''}
-                            onChange={e => updateKnockout(matchId, 'winner', e.target.value)}
+                            onChange={e => handleKnockoutField(matchId, 'winner', e.target.value)}
                             className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-green-400"
                           >
                             <option value="">— Seleccioná —</option>
