@@ -244,6 +244,65 @@ export function AppProvider({ children }) {
     await addLog(username, `Pronóstico eliminatoria ${matchId}: resultado ${data.homeGoals ?? '?'}-${data.awayGoals ?? '?'}, pasa ${data.winner || '?'}`)
   }, [addLog])
 
+  // ── Borrar pronóstico de grupo ─────────────────────────
+  const deleteGroupPred = useCallback(async (username, matchId) => {
+    await supabase.from('pronosticos').delete()
+      .eq('username', username).eq('match_id', matchId)
+    setPredictions(prev => {
+      const user = prev[username]
+      if (!user) return prev
+      const groups = { ...user.groups }
+      delete groups[matchId]
+      return { ...prev, [username]: { ...user, groups } }
+    })
+    const m = GROUP_MATCHES.find(x => x.id === matchId)
+    await addLog(username, `Borró pronóstico ${m ? `${m.home} vs ${m.away}` : matchId}`)
+  }, [addLog])
+
+  // ── Guardar clasificados en bulk ────────────────────────
+  const saveQualifiersBulk = useCallback(async (username, newQuals) => {
+    const savedSet = new Set(predictionsRef.current[username]?.qualifiers || [])
+    const newSet   = new Set(newQuals)
+    const toRemove = [...savedSet].filter(c => !newSet.has(c))
+    const toAdd    = [...newSet].filter(c => !savedSet.has(c))
+    if (toRemove.length > 0) {
+      await supabase.from('clasificados_pronosticados').delete()
+        .eq('username', username).in('country', toRemove)
+    }
+    if (toAdd.length > 0) {
+      await supabase.from('clasificados_pronosticados').insert(toAdd.map(country => ({ username, country })))
+    }
+    setPredictions(prev => {
+      const user = prev[username] || { groups: {}, qualifiers: [], champion: '', subchampion: '', knockout: {} }
+      return { ...prev, [username]: { ...user, qualifiers: newQuals } }
+    })
+    await addLog(username, `Guardó clasificados a 16avos (${newQuals.length}/32)`)
+  }, [addLog])
+
+  // ── Guardar campeón y subcampeón juntos ─────────────────
+  const updateFinal = useCallback(async (username, champion, subchampion) => {
+    setPredictions(prev => {
+      const user = prev[username] || { groups: {}, qualifiers: [], champion: '', subchampion: '', knockout: {} }
+      return { ...prev, [username]: { ...user, champion, subchampion } }
+    })
+    await supabase.from('pronosticos_generales').upsert(
+      { username, champion: champion || null, subchampion: subchampion || null },
+      { onConflict: 'username' }
+    )
+    await addLog(username, `Actualizó final: ${champion || '?'} vs ${subchampion || '?'}`)
+  }, [addLog])
+
+  // ── Borrar resultado real ──────────────────────────────
+  const deleteRealResult = useCallback(async (matchId, username) => {
+    await supabase.from('resultados_reales').delete().eq('match_id', matchId)
+    setRealResults(prev => {
+      const next = { ...prev }
+      delete next[matchId]
+      return next
+    })
+    await addLog(username, `Borró resultado real ${matchId}`)
+  }, [addLog])
+
   // ── Resultados reales ──────────────────────────────────
   const setRealResult = useCallback(async (matchId, home, away, username) => {
     await supabase.from('resultados_reales').upsert(
@@ -355,7 +414,8 @@ export function AppProvider({ children }) {
     updateGroupPred, togglePredQualifier,
     updateChampionPred, updateSubchampionPred,
     updateKnockoutPred,
-    realResults, setRealResult,
+    deleteGroupPred, saveQualifiersBulk, updateFinal,
+    realResults, setRealResult, deleteRealResult,
     realQualifiers, setRealQualifiersData,
     knockoutData, setKnockoutMatch,
     scoring, updateScoring,

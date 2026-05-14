@@ -6,7 +6,7 @@ import { DEFAULT_SCORING } from '../constants/storage'
 export default function Admin() {
   const {
     session,
-    realResults, setRealResult,
+    realResults, setRealResult, deleteRealResult,
     realQualifiers, setRealQualifiersData,
     knockoutData, setKnockoutMatch,
     scoring, updateScoring,
@@ -21,6 +21,11 @@ export default function Admin() {
   const [knockInputs,  setKnockInputs]  = useState({})
 
   // ── Resultados reales ─────────────────────────────────
+  const deleteResult = async (matchId) => {
+    await deleteRealResult(matchId, session)
+    setResultInputs(prev => { const n = { ...prev }; delete n[matchId]; return n })
+  }
+
   const saveResult = async (matchId) => {
     const inp  = resultInputs[matchId] || {}
     const home = inp.home ?? realResults[matchId]?.home?.toString() ?? ''
@@ -132,8 +137,16 @@ export default function Admin() {
                           onClick={() => saveResult(m.id)}
                           className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-xs px-2.5 py-1 rounded-lg transition-colors"
                         >
-                          {saved ? '✓ Guardado' : 'Guardar'}
+                          {saved ? '✓ Guardar' : 'Guardar'}
                         </button>
+                        {saved && (
+                          <button
+                            onClick={() => deleteResult(m.id)}
+                            className="shrink-0 bg-red-100 hover:bg-red-200 text-red-600 text-xs px-2 py-1 rounded-lg transition-colors"
+                          >
+                            Borrar
+                          </button>
+                        )}
                       </div>
                     )
                   })}
