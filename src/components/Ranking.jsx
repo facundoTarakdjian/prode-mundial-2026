@@ -4,7 +4,12 @@ import { ALL_USERNAMES } from '../constants/users'
 import { GROUP_MATCHES, GROUPS, KNOCKOUT_ROUNDS } from '../constants/fixture'
 import Bandera from './Bandera'
 
+const MUNDIAL_START = '2026-06-11T16:00:00-03:00'
 const sign = (a, b) => a > b ? 1 : a < b ? -1 : 0
+
+function isMundialStarted() {
+  return new Date() >= new Date(MUNDIAL_START)
+}
 
 export default function Ranking() {
   const { predictions, realResults, realQualifiers, knockoutData, scoring, calcPoints } = useApp()
@@ -14,14 +19,15 @@ export default function Ranking() {
     .map(u => ({ username: u, points: calcPoints(u) }))
     .sort((a, b) => b.points - a.points)
 
-  const lockedGroupMatches = GROUP_MATCHES.filter(m =>
-    new Date() >= new Date(m.date + '-03:00') && realResults[m.id] !== undefined
+  // Partidos bloqueados (comenzaron), independientemente de si hay resultado real
+  const lockedGroupMatches = GROUP_MATCHES.filter(
+    m => new Date() >= new Date(m.date + '-03:00')
   )
 
   const pointsForGroupMatch = (username, matchId) => {
     const pred = predictions[username]?.groups?.[matchId]
     const real = realResults[matchId]
-    if (!pred || !real || pred.home === '' || pred.away === '') return null
+    if (!real || !pred || pred.home === '' || pred.away === '') return null
     return sign(parseInt(pred.home), parseInt(pred.away)) === sign(real.home, real.away)
       ? scoring.exactResult : 0
   }
@@ -82,7 +88,7 @@ export default function Ranking() {
         <div className="space-y-4">
           {lockedGroupMatches.length === 0 ? (
             <div className="bg-white rounded-2xl shadow p-8 text-center text-gray-400 text-sm">
-              Aún no hay partidos jugados con resultados cargados.
+              Aún no comenzó ningún partido.
             </div>
           ) : (
             Object.entries(GROUPS).map(([g]) => {
@@ -95,22 +101,31 @@ export default function Ranking() {
                   </span>
                   <div className="space-y-3">
                     {matches.map(m => {
-                      const real = realResults[m.id]
+                      const real = realResults[m.id] ?? null
                       return (
                         <div key={m.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                          {/* Resultado real */}
+                          {/* Cabecera: equipos + resultado (o pendiente) */}
                           <div className="grid grid-cols-3 items-center gap-2 pb-3 border-b border-gray-200 mb-3">
                             <div className="flex flex-col items-center text-center gap-1">
                               <Bandera pais={m.home} />
                               <span className="text-sm font-semibold text-gray-800">{m.home}</span>
                             </div>
                             <div className="flex flex-col items-center gap-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="text-2xl font-bold text-gray-800">{real.home}</span>
-                                <span className="text-gray-400 font-bold text-lg">-</span>
-                                <span className="text-2xl font-bold text-gray-800">{real.away}</span>
-                              </div>
-                              <span className="text-xs text-gray-400">Resultado final</span>
+                              {real ? (
+                                <>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-2xl font-bold text-gray-800">{real.home}</span>
+                                    <span className="text-gray-400 font-bold text-lg">-</span>
+                                    <span className="text-2xl font-bold text-gray-800">{real.away}</span>
+                                  </div>
+                                  <span className="text-xs text-gray-400">Resultado final</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-gray-300 font-bold text-lg">? - ?</span>
+                                  <span className="text-xs text-amber-500">Pendiente</span>
+                                </>
+                              )}
                             </div>
                             <div className="flex flex-col items-center text-center gap-1">
                               <Bandera pais={m.away} />
@@ -121,7 +136,7 @@ export default function Ranking() {
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                             {ALL_USERNAMES.map(username => {
                               const pred = predictions[username]?.groups?.[m.id]
-                              const pts  = pointsForGroupMatch(username, m.id)
+                              const pts  = pointsForGroupMatch(username, m.id) // null si no hay resultado real
                               const hit  = pts === scoring.exactResult
                               return (
                                 <div
@@ -133,7 +148,12 @@ export default function Ranking() {
                                   <span className="font-semibold text-gray-700">{username}</span>
                                   <span className={`font-bold ${hit ? 'text-green-700' : pts === 0 ? 'text-red-400' : 'text-gray-400'}`}>
                                     {pred ? `${pred.home}-${pred.away}` : '—'}
-                                    {pts !== null && <span className="ml-1">· {pts}pt</span>}
+                                    {pts !== null
+                                      ? <span className="ml-1">· {pts}pt</span>
+                                      : pred
+                                        ? <span className="ml-1 text-gray-300">· ?pt</span>
+                                        : null
+                                    }
                                   </span>
                                 </div>
                               )
@@ -153,46 +173,72 @@ export default function Ranking() {
       {/* ── CLASIFICADOS ── */}
       {activeSection === 'qualified' && (
         <div className="bg-white rounded-2xl shadow p-5">
-          <h3 className="font-bold text-gray-800 mb-4">Aciertos de clasificados a 16avos</h3>
-          {realQualifiers.length === 0 ? (
+          <h3 className="font-bold text-gray-800 mb-1">Clasificados a 16avos</h3>
+          {!isMundialStarted() ? (
             <p className="text-sm text-gray-400 text-center py-6">
-              Aún no se cargaron los clasificados reales.
+              Los pronósticos se revelan cuando comienza el Mundial.
             </p>
           ) : (
-            <div className="space-y-3">
-              {ALL_USERNAMES.map(username => {
-                const preds = predictions[username]?.qualifiers || []
-                const hits  = preds.filter(c => realQualifiers.includes(c)).length
-                const pts   = hits * scoring.qualifierHit
-                return (
-                  <div key={username} className="rounded-xl border border-gray-100 p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-semibold text-gray-800">{username}</span>
-                      <span className="text-sm font-bold text-green-700">
-                        {hits} aciertos · {pts} pts
-                      </span>
+            <>
+              {realQualifiers.length === 0 && (
+                <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+                  El admin aún no cargó los clasificados reales — los puntos aparecerán cuando se carguen.
+                </p>
+              )}
+              <div className="space-y-3">
+                {ALL_USERNAMES.map(username => {
+                  const preds   = predictions[username]?.qualifiers || []
+                  const hasReal = realQualifiers.length > 0
+                  const hits    = hasReal ? preds.filter(c => realQualifiers.includes(c)).length : null
+                  const pts     = hits !== null ? hits * scoring.qualifierHit : null
+                  return (
+                    <div key={username} className="rounded-xl border border-gray-100 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-gray-800">{username}</span>
+                        <span className="text-sm font-bold text-green-700">
+                          {pts !== null
+                            ? `${hits} aciertos · ${pts} pts`
+                            : `${preds.length}/32 elegidos`
+                          }
+                        </span>
+                      </div>
+                      {preds.length === 0 ? (
+                        <p className="text-xs text-gray-300">No guardó clasificados.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {/* Si hay reales, mostrar los 32 reales comparando con los del jugador */}
+                          {hasReal
+                            ? realQualifiers.map(country => {
+                                const hit = preds.includes(country)
+                                return (
+                                  <span
+                                    key={country}
+                                    className={`text-xs px-2 py-0.5 rounded-full border ${
+                                      hit
+                                        ? 'bg-green-100 text-green-700 border-green-200'
+                                        : 'bg-gray-50 text-gray-300 border-gray-100'
+                                    }`}
+                                  >
+                                    {hit ? '✓ ' : ''}{country}
+                                  </span>
+                                )
+                              })
+                            : preds.map(country => (
+                                <span
+                                  key={country}
+                                  className="text-xs px-2 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200"
+                                >
+                                  {country}
+                                </span>
+                              ))
+                          }
+                        </div>
+                      )}
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {realQualifiers.map(country => {
-                        const hit = preds.includes(country)
-                        return (
-                          <span
-                            key={country}
-                            className={`text-xs px-2 py-0.5 rounded-full border ${
-                              hit
-                                ? 'bg-green-100 text-green-700 border-green-200'
-                                : 'bg-gray-50 text-gray-300 border-gray-100'
-                            }`}
-                          >
-                            {hit ? '✓ ' : ''}{country}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -200,44 +246,56 @@ export default function Ranking() {
       {/* ── CAMPEÓN ── */}
       {activeSection === 'champion' && (
         <div className="bg-white rounded-2xl shadow p-5">
-          <h3 className="font-bold text-gray-800 mb-4">Campeón y Subcampeón</h3>
-          {!knockoutData['F_winner'] ? (
+          <h3 className="font-bold text-gray-800 mb-1">Campeón y Subcampeón</h3>
+          {!isMundialStarted() ? (
             <p className="text-sm text-gray-400 text-center py-6">
-              El campeón aún no está definido.
+              Los pronósticos se revelan cuando comienza el Mundial.
             </p>
           ) : (
             <>
-              <div className="flex gap-6 mb-4 p-3 bg-green-50 rounded-xl">
-                <div>
-                  <div className="text-xs text-gray-500 mb-0.5">Campeón real</div>
-                  <div className="font-bold text-green-800">🥇 {knockoutData['F_winner']}</div>
-                </div>
-                {knockoutData['F_runner_up'] && (
+              {knockoutData['F_winner'] ? (
+                <div className="flex gap-6 mb-4 p-3 bg-green-50 rounded-xl">
                   <div>
-                    <div className="text-xs text-gray-500 mb-0.5">Subcampeón real</div>
-                    <div className="font-bold text-gray-700">🥈 {knockoutData['F_runner_up']}</div>
+                    <div className="text-xs text-gray-500 mb-0.5">Campeón real</div>
+                    <div className="font-bold text-green-800">🥇 {knockoutData['F_winner']}</div>
                   </div>
-                )}
-              </div>
+                  {knockoutData['F_runner_up'] && (
+                    <div>
+                      <div className="text-xs text-gray-500 mb-0.5">Subcampeón real</div>
+                      <div className="font-bold text-gray-700">🥈 {knockoutData['F_runner_up']}</div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+                  El campeón aún no está definido — los puntos aparecerán cuando termine la final.
+                </p>
+              )}
               <div className="space-y-2">
                 {ALL_USERNAMES.map(username => {
-                  const champ = predictions[username]?.champion    || ''
-                  const sub   = predictions[username]?.subchampion || ''
-                  const ptsC  = champ === knockoutData['F_winner']    ? scoring.champion    : 0
-                  const ptsS  = sub   === knockoutData['F_runner_up'] ? scoring.subchampion : 0
-                  const total = ptsC + ptsS
+                  const champ   = predictions[username]?.champion    || ''
+                  const sub     = predictions[username]?.subchampion || ''
+                  const hasReal = !!knockoutData['F_winner']
+                  const ptsC    = hasReal && champ === knockoutData['F_winner']    ? scoring.champion    : 0
+                  const ptsS    = hasReal && sub   === knockoutData['F_runner_up'] ? scoring.subchampion : 0
+                  const total   = ptsC + ptsS
                   return (
-                    <div key={username} className={`flex items-center justify-between rounded-xl border px-3 py-2.5 ${total > 0 ? 'bg-green-50 border-green-200' : 'border-gray-100'}`}>
+                    <div
+                      key={username}
+                      className={`flex items-center justify-between rounded-xl border px-3 py-2.5 ${
+                        hasReal && total > 0 ? 'bg-green-50 border-green-200' : 'border-gray-100'
+                      }`}
+                    >
                       <div>
                         <div className="font-semibold text-gray-800 text-sm">{username}</div>
                         <div className="text-xs text-gray-500 mt-0.5">
                           🥇 {champ || <span className="text-gray-300">—</span>}
                           {' · '}
-                          🥈 {sub || <span className="text-gray-300">—</span>}
+                          🥈 {sub   || <span className="text-gray-300">—</span>}
                         </div>
                       </div>
-                      <span className={`text-sm font-bold ${total > 0 ? 'text-green-700' : 'text-gray-400'}`}>
-                        {total} pts
+                      <span className={`text-sm font-bold ${!hasReal ? 'text-gray-300' : total > 0 ? 'text-green-700' : 'text-gray-400'}`}>
+                        {hasReal ? `${total} pts` : '? pts'}
                       </span>
                     </div>
                   )
@@ -250,77 +308,95 @@ export default function Ranking() {
 
       {/* ── ELIMINACIÓN ── */}
       {activeSection === 'knockout' && (() => {
-        const playedMatches = Object.entries(knockoutData).filter(
-          ([id, data]) =>
-            !id.includes('winner') && !id.includes('runner') && data.home && data.winner
+        // Mostrar partidos que ya tienen equipos definidos (bloqueados), con o sin resultado
+        const definedMatches = Object.entries(knockoutData).filter(
+          ([id, data]) => !id.includes('winner') && !id.includes('runner') && data.home
         )
-        if (playedMatches.length === 0) {
+        if (definedMatches.length === 0) {
           return (
             <div className="bg-white rounded-2xl shadow p-8 text-center text-gray-400 text-sm">
-              Aún no hay partidos de eliminación jugados.
+              Aún no hay cruces de eliminación definidos.
             </div>
           )
         }
         return (
           <div className="space-y-4">
             {KNOCKOUT_ROUNDS.map(round => {
-              const matches = playedMatches.filter(([id]) => id.startsWith(round.id + '_'))
+              const matches = definedMatches.filter(([id]) => id.startsWith(round.id + '_'))
               if (matches.length === 0) return null
               return (
                 <div key={round.id} className="bg-white rounded-2xl shadow p-4">
                   <h3 className="font-bold text-gray-700 mb-3">{round.label}</h3>
                   <div className="space-y-3">
-                    {matches.map(([matchId, matchData]) => (
-                      <div key={matchId} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                        {/* Resultado */}
-                        <div className="grid grid-cols-3 items-center gap-2 pb-3 border-b border-gray-200 mb-3">
-                          <div className="flex flex-col items-center text-center gap-1">
-                            <Bandera pais={matchData.home} />
-                            <span className="text-sm font-semibold text-gray-800">{matchData.home}</span>
-                          </div>
-                          <div className="flex flex-col items-center gap-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-2xl font-bold text-gray-800">{matchData.homeGoals ?? '?'}</span>
-                              <span className="text-gray-400 font-bold text-lg">-</span>
-                              <span className="text-2xl font-bold text-gray-800">{matchData.awayGoals ?? '?'}</span>
+                    {matches.map(([matchId, matchData]) => {
+                      const hasResult = matchData.winner != null
+                      return (
+                        <div key={matchId} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                          {/* Resultado o pendiente */}
+                          <div className="grid grid-cols-3 items-center gap-2 pb-3 border-b border-gray-200 mb-3">
+                            <div className="flex flex-col items-center text-center gap-1">
+                              <Bandera pais={matchData.home} />
+                              <span className="text-sm font-semibold text-gray-800">{matchData.home}</span>
                             </div>
-                            <span className="text-xs text-green-700 font-semibold">Pasa: {matchData.winner}</span>
+                            <div className="flex flex-col items-center gap-0.5">
+                              {hasResult ? (
+                                <>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-2xl font-bold text-gray-800">{matchData.homeGoals ?? '?'}</span>
+                                    <span className="text-gray-400 font-bold text-lg">-</span>
+                                    <span className="text-2xl font-bold text-gray-800">{matchData.awayGoals ?? '?'}</span>
+                                  </div>
+                                  <span className="text-xs text-green-700 font-semibold">Pasa: {matchData.winner}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-gray-300 font-bold text-lg">? - ?</span>
+                                  <span className="text-xs text-amber-500">Pendiente</span>
+                                </>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-center text-center gap-1">
+                              <Bandera pais={matchData.away} />
+                              <span className="text-sm font-semibold text-gray-800">{matchData.away}</span>
+                            </div>
                           </div>
-                          <div className="flex flex-col items-center text-center gap-1">
-                            <Bandera pais={matchData.away} />
-                            <span className="text-sm font-semibold text-gray-800">{matchData.away}</span>
+                          {/* Pronósticos de jugadores */}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                            {ALL_USERNAMES.map(username => {
+                              const pred = predictions[username]?.knockout?.[matchId]
+                              const ptsW = hasResult && pred?.winner === matchData.winner ? scoring.knockoutWinner : 0
+                              const ptsR = hasResult && (
+                                pred?.homeGoals !== undefined && pred?.awayGoals !== undefined &&
+                                matchData.homeGoals != null && matchData.awayGoals != null &&
+                                parseInt(pred.homeGoals) === matchData.homeGoals &&
+                                parseInt(pred.awayGoals) === matchData.awayGoals
+                              ) ? scoring.knockoutResult : 0
+                              const total = ptsW + ptsR
+                              const hit   = hasResult && total > 0
+                              const miss  = hasResult && total === 0 && pred
+                              return (
+                                <div
+                                  key={username}
+                                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs ${
+                                    hit ? 'bg-green-100' : miss ? 'bg-red-50' : 'bg-white border border-gray-100'
+                                  }`}
+                                >
+                                  <span className="font-semibold text-gray-700">{username}</span>
+                                  <span className={`font-bold ${hit ? 'text-green-700' : miss ? 'text-red-400' : 'text-gray-400'}`}>
+                                    {pred
+                                      ? `${pred.homeGoals ?? '?'}-${pred.awayGoals ?? '?'}${pred.winner ? ` · ${pred.winner}` : ''}`
+                                      : '—'
+                                    }
+                                    {hasResult && pred && <span className="ml-1">· {total}pt</span>}
+                                    {!hasResult && pred && <span className="ml-1 text-gray-300">· ?pt</span>}
+                                  </span>
+                                </div>
+                              )
+                            })}
                           </div>
                         </div>
-                        {/* Pronósticos */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                          {ALL_USERNAMES.map(username => {
-                            const pred = predictions[username]?.knockout?.[matchId]
-                            const ptsW = pred?.winner === matchData.winner ? scoring.knockoutWinner : 0
-                            const ptsR = (
-                              pred?.homeGoals !== undefined && pred?.awayGoals !== undefined &&
-                              matchData.homeGoals != null && matchData.awayGoals != null &&
-                              parseInt(pred.homeGoals) === matchData.homeGoals &&
-                              parseInt(pred.awayGoals) === matchData.awayGoals
-                            ) ? scoring.knockoutResult : 0
-                            const total = ptsW + ptsR
-                            return (
-                              <div
-                                key={username}
-                                className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs ${
-                                  total > 0 ? 'bg-green-100' : pred ? 'bg-red-50' : 'bg-white border border-gray-100'
-                                }`}
-                              >
-                                <span className="font-semibold text-gray-700">{username}</span>
-                                <span className={`font-bold ${total > 0 ? 'text-green-700' : pred ? 'text-red-400' : 'text-gray-400'}`}>
-                                  {pred ? `${pred.homeGoals ?? '?'}-${pred.awayGoals ?? '?'}` : '—'}
-                                  {pred && <span className="ml-1">· {total}pt</span>}
-                                </span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )
