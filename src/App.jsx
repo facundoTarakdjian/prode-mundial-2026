@@ -2,15 +2,15 @@ import { useState } from 'react'
 import { AppProvider, useApp } from './context/AppContext'
 import { USERS } from './constants/users'
 import Login from './components/Login'
-import Dashboard from './components/Dashboard'
+import Ranking from './components/Ranking'
 import MisPronósticos from './components/MisPronósticos'
-import Reglamento from './components/Reglamento'
+import Mundial from './components/Mundial'
 import Admin from './components/Admin'
 import Logs from './components/Logs'
 
 function MainApp() {
   const { session, logout, loading } = useApp()
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [activeTab, setActiveTab] = useState('ranking')
 
   if (!session) return <Login />
 
@@ -29,18 +29,18 @@ function MainApp() {
   const isAdmin = user?.isAdmin ?? false
 
   const tabs = [
-    { id: 'dashboard',   label: 'Dashboard',   icon: '🏠' },
+    { id: 'ranking',     label: 'Ranking',     icon: '🏆' },
     { id: 'pronosticos', label: 'Pronósticos',  icon: '⚽' },
-    { id: 'reglamento',  label: 'Reglamento',   icon: '📋' },
+    { id: 'mundial',     label: 'Mundial',      icon: '🌍' },
     ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: '⚙️' }] : []),
     { id: 'logs',        label: 'Logs',         icon: '📝' },
   ]
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'dashboard':   return <Dashboard />
+      case 'ranking':     return <Ranking />
       case 'pronosticos': return <MisPronósticos />
-      case 'reglamento':  return <Reglamento />
+      case 'mundial':     return <Mundial />
       case 'admin':       return isAdmin ? <Admin /> : null
       case 'logs':        return <Logs />
       default:            return null

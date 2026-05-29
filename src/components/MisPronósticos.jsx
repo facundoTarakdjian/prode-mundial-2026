@@ -1,23 +1,60 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { GROUP_MATCHES, GROUPS, ALL_COUNTRIES, KNOCKOUT_ROUNDS } from '../constants/fixture'
+import Bandera from './Bandera'
+
+// Primer partido del Mundial — bloqueo global de clasificados y campeón
+const MUNDIAL_START = '2026-06-11T16:00:00-03:00'
 
 function isMatchLocked(dateIso) {
-  return new Date() >= new Date(dateIso)
+  // Fechas del fixture están en UTC-3 (Argentina), forzamos offset explícito
+  return new Date() >= new Date(dateIso + '-03:00')
+}
+
+function isMundialStarted() {
+  return new Date() >= new Date(MUNDIAL_START)
+}
+
+const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+
+function formatFecha(d) {
+  const dia = DIAS[d.getDay()]
+  const fecha = `${d.getDate()}/${d.getMonth() + 1}`
+  const hora = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return `${dia} ${fecha} · ${hora} hs`
 }
 
 function ScoreInput({ value, onChange, locked }) {
+  const num = value === '' ? '' : Number(value)
+  const handleUp   = () => { if (!locked) onChange(String(Math.min(20, (num === '' ? 0 : num) + 1))) }
+  const handleDown = () => { if (!locked) onChange(String(Math.max(0,  (num === '' ? 0 : num) - 1))) }
   return (
-    <input
-      type="number"
-      min="0"
-      max="20"
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      disabled={locked}
-      className={`w-12 text-center border rounded px-1 py-0.5 text-sm font-bold
-        ${locked ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border-green-300 focus:ring-1 focus:ring-green-400 focus:outline-none'}`}
-    />
+    <div className="flex flex-col items-center gap-0.5">
+      <button
+        type="button"
+        onClick={handleUp}
+        disabled={locked}
+        className={`w-8 h-6 flex items-center justify-center rounded text-xs font-bold leading-none
+          ${locked ? 'text-gray-300 cursor-not-allowed' : 'text-green-700 hover:bg-green-100 active:bg-green-200'}`}
+      >▲</button>
+      <input
+        type="number"
+        min="0"
+        max="20"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        disabled={locked}
+        className={`w-12 text-center border-2 rounded-lg py-1 text-xl font-bold
+          ${locked ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white border-green-300 focus:border-green-500 focus:ring-0 focus:outline-none'}`}
+      />
+      <button
+        type="button"
+        onClick={handleDown}
+        disabled={locked || num === 0 || num === ''}
+        className={`w-8 h-6 flex items-center justify-center rounded text-xs font-bold leading-none
+          ${locked || num === 0 || num === '' ? 'text-gray-300 cursor-not-allowed' : 'text-green-700 hover:bg-green-100 active:bg-green-200'}`}
+      >▼</button>
+    </div>
   )
 }
 
@@ -196,22 +233,35 @@ export default function MisPronósticos() {
                     const justSaved    = !!savedGroups[m.id]
                     const d = new Date(m.date)
                     return (
-                      <div key={m.id} className={`rounded-lg px-3 py-2 ${locked ? 'bg-gray-50' : 'bg-green-50'}`}>
-                        {/* Fila del partido */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400 w-24 shrink-0">
-                            {d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })} {d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <span className="flex-1 text-right text-sm font-medium text-gray-800 truncate">{m.home}</span>
-                          <ScoreInput value={displayHome} onChange={v => handleGroupInput(m.id, 'home', v)} locked={locked} />
-                          <span className="text-gray-400 text-xs">-</span>
-                          <ScoreInput value={displayAway} onChange={v => handleGroupInput(m.id, 'away', v)} locked={locked} />
-                          <span className="flex-1 text-sm font-medium text-gray-800 truncate">{m.away}</span>
-                          {locked && <span className="text-xs text-red-400 shrink-0">🔒</span>}
+                      <div key={m.id} className={`rounded-xl p-3 shadow-sm border ${locked ? 'bg-gray-50 border-gray-100' : 'bg-green-50 border-green-100'}`}>
+                        {/* 3 columnas: local | marcador+fecha | visitante */}
+                        <div className="grid grid-cols-3 items-center gap-2">
+                          {/* Local */}
+                          <div className="flex flex-col items-center text-center gap-1.5">
+                            <Bandera pais={m.home} />
+                            <span className="text-sm font-semibold text-gray-800 leading-tight">{m.home}</span>
+                          </div>
+                          {/* Centro: inputs + fecha */}
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="flex items-center gap-2">
+                              <ScoreInput value={displayHome} onChange={v => handleGroupInput(m.id, 'home', v)} locked={locked} />
+                              <span className="text-gray-400 font-bold text-lg self-center">-</span>
+                              <ScoreInput value={displayAway} onChange={v => handleGroupInput(m.id, 'away', v)} locked={locked} />
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs text-gray-400">{formatFecha(d)}</div>
+                              {locked && <div className="text-xs text-red-400 mt-0.5">🔒 bloqueado</div>}
+                            </div>
+                          </div>
+                          {/* Visitante */}
+                          <div className="flex flex-col items-center text-center gap-1.5">
+                            <Bandera pais={m.away} />
+                            <span className="text-sm font-semibold text-gray-800 leading-tight">{m.away}</span>
+                          </div>
                         </div>
-                        {/* Fila de acciones */}
+                        {/* Acciones */}
                         {!locked && (
-                          <div className="flex justify-end gap-1.5 mt-1.5">
+                          <div className="flex justify-end gap-1.5 mt-2 pt-2 border-t border-green-100">
                             <button
                               onClick={() => handleSaveGroup(m.id)}
                               disabled={!isLocalDirty}
@@ -252,112 +302,185 @@ export default function MisPronósticos() {
         <div className="bg-white rounded-2xl shadow p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-gray-800">32 Clasificados a 16avos</h2>
-            <div className="flex items-center gap-2">
-              <span className={`text-sm font-bold px-2 py-1 rounded-full ${
-                displayQuals.length === 32 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-              }`}>
-                {displayQuals.length}/32
-              </span>
-              <button
-                onClick={handleSaveQualifiers}
-                disabled={!qualDraft || qualSaving}
-                className={`text-sm px-3 py-1.5 rounded-xl font-medium transition-colors ${
-                  qualSaved
-                    ? 'bg-green-100 text-green-700'
-                    : qualDraft
-                    ? 'bg-green-500 hover:bg-green-600 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-400 cursor-default'
-                }`}
-              >
-                {qualSaved ? '✓ Guardado' : qualSaving ? 'Guardando...' : qualDraft ? 'Guardar selección' : '✓ Guardado'}
-              </button>
-            </div>
-          </div>
-          {qualDraft && (
-            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-3">
-              Tenés cambios sin guardar — presioná "Guardar selección" para confirmar.
-            </p>
-          )}
-          <p className="text-xs text-gray-500 mb-4">Seleccioná exactamente 32 países que creés que van a clasificar.</p>
-          {Object.entries(GROUPS).map(([g, teams]) => (
-            <div key={g} className="mb-3">
-              <div className="text-xs font-semibold text-gray-400 uppercase mb-1">Grupo {g}</div>
-              <div className="flex flex-wrap gap-2">
-                {teams.map(country => {
-                  const selected = displayQuals.includes(country)
-                  const disabled = !selected && displayQuals.length >= 32
-                  return (
-                    <button
-                      key={country}
-                      onClick={() => handleToggleQualifier(country)}
-                      disabled={disabled}
-                      className={`text-sm px-3 py-1 rounded-full border transition-all ${
-                        selected
-                          ? 'bg-green-600 text-white border-green-600'
-                          : disabled
-                          ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-green-400'
-                      }`}
-                    >
-                      {country}
-                    </button>
-                  )
-                })}
+            {!isMundialStarted() && (
+              <div className="flex items-center gap-2">
+                <span className={`text-sm font-bold px-2 py-1 rounded-full ${
+                  displayQuals.length === 32 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {displayQuals.length}/32
+                </span>
+                <button
+                  onClick={handleSaveQualifiers}
+                  disabled={!qualDraft || qualSaving}
+                  className={`text-sm px-3 py-1.5 rounded-xl font-medium transition-colors ${
+                    qualSaved
+                      ? 'bg-green-100 text-green-700'
+                      : qualDraft
+                      ? 'bg-green-500 hover:bg-green-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-400 cursor-default'
+                  }`}
+                >
+                  {qualSaved ? '✓ Guardado' : qualSaving ? 'Guardando...' : qualDraft ? 'Guardar selección' : '✓ Guardado'}
+                </button>
               </div>
-            </div>
-          ))}
+            )}
+          </div>
+
+          {isMundialStarted() ? (
+            <>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-amber-700 text-sm font-medium text-center mb-4">
+                ⏱ Pronósticos cerrados — el Mundial ya comenzó
+              </div>
+              {qualPreds.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">No guardaste clasificados antes del inicio.</p>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500 mb-3">Tu selección guardada ({qualPreds.length}/32):</p>
+                  {Object.entries(GROUPS).map(([g, teams]) => {
+                    const selected = teams.filter(c => qualPreds.includes(c))
+                    if (selected.length === 0) return null
+                    return (
+                      <div key={g} className="mb-3">
+                        <div className="text-xs font-semibold text-gray-400 uppercase mb-1">Grupo {g}</div>
+                        <div className="flex flex-wrap gap-2">
+                          {teams.map(country => (
+                            <span
+                              key={country}
+                              className={`text-sm px-3 py-1 rounded-full border ${
+                                qualPreds.includes(country)
+                                  ? 'bg-green-100 text-green-700 border-green-200'
+                                  : 'bg-gray-50 text-gray-300 border-gray-100'
+                              }`}
+                            >
+                              {country}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {qualDraft && (
+                <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+                  Tenés cambios sin guardar — presioná "Guardar selección" para confirmar.
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mb-4">Seleccioná exactamente 32 países que creés que van a clasificar.</p>
+              {Object.entries(GROUPS).map(([g, teams]) => (
+                <div key={g} className="mb-3">
+                  <div className="text-xs font-semibold text-gray-400 uppercase mb-1">Grupo {g}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {teams.map(country => {
+                      const selected = displayQuals.includes(country)
+                      const disabled = !selected && displayQuals.length >= 32
+                      return (
+                        <button
+                          key={country}
+                          onClick={() => handleToggleQualifier(country)}
+                          disabled={disabled}
+                          className={`text-sm px-3 py-1 rounded-full border transition-all ${
+                            selected
+                              ? 'bg-green-600 text-white border-green-600'
+                              : disabled
+                              ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-green-400'
+                          }`}
+                        >
+                          {country}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
 
       {/* ── SECCIÓN CAMPEÓN ── */}
       {activeSection === 'champion' && (
         <div className="bg-white rounded-2xl shadow p-5 space-y-5">
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">🥇 Campeón del Mundo</label>
-            <select
-              value={displayChampion}
-              onChange={e => handleChampionInput(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              <option value="">— Seleccioná un país —</option>
-              {ALL_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">🥈 Subcampeón</label>
-            <select
-              value={displaySubchampion}
-              onChange={e => handleSubchampionInput(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              <option value="">— Seleccioná un país —</option>
-              {ALL_COUNTRIES.filter(c => c !== displayChampion).map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          {champLocal && (
-            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-              Tenés cambios sin guardar.
-            </p>
+          {isMundialStarted() ? (
+            <>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-amber-700 text-sm font-medium text-center">
+                ⏱ Pronósticos cerrados — el Mundial ya comenzó
+              </div>
+              {champion || subchampion ? (
+                <div className="bg-green-50 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🥇</span>
+                    <div>
+                      <div className="text-xs text-gray-500">Campeón</div>
+                      <div className="text-base font-bold text-gray-800">{champion || <span className="text-gray-400 font-normal">No seleccionado</span>}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🥈</span>
+                    <div>
+                      <div className="text-xs text-gray-500">Subcampeón</div>
+                      <div className="text-base font-bold text-gray-800">{subchampion || <span className="text-gray-400 font-normal">No seleccionado</span>}</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 text-center py-4">No guardaste campeón ni subcampeón antes del inicio.</p>
+              )}
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">🥇 Campeón del Mundo</label>
+                <select
+                  value={displayChampion}
+                  onChange={e => handleChampionInput(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">— Seleccioná un país —</option>
+                  {ALL_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">🥈 Subcampeón</label>
+                <select
+                  value={displaySubchampion}
+                  onChange={e => handleSubchampionInput(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">— Seleccioná un país —</option>
+                  {ALL_COUNTRIES.filter(c => c !== displayChampion).map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              {champLocal && (
+                <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                  Tenés cambios sin guardar.
+                </p>
+              )}
+              {displayChampion && displaySubchampion && (
+                <div className="bg-green-50 rounded-xl p-4 text-center">
+                  <p className="text-sm text-gray-600">Tu final: <strong>{displayChampion}</strong> vs <strong>{displaySubchampion}</strong></p>
+                  <p className="text-xs text-gray-400 mt-1">Ganador: {displayChampion}</p>
+                </div>
+              )}
+              <button
+                onClick={handleSaveChampion}
+                disabled={!champLocal || champSaving}
+                className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                  champSaved
+                    ? 'bg-green-100 text-green-700'
+                    : champLocal
+                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    : 'bg-gray-100 text-gray-400 cursor-default'
+                }`}
+              >
+                {champSaved ? '✓ Guardado' : champSaving ? 'Guardando...' : champLocal ? 'Guardar campeón y subcampeón' : '✓ Guardado'}
+              </button>
+            </>
           )}
-          {displayChampion && displaySubchampion && (
-            <div className="bg-green-50 rounded-xl p-4 text-center">
-              <p className="text-sm text-gray-600">Tu final: <strong>{displayChampion}</strong> vs <strong>{displaySubchampion}</strong></p>
-              <p className="text-xs text-gray-400 mt-1">Ganador: {displayChampion}</p>
-            </div>
-          )}
-          <button
-            onClick={handleSaveChampion}
-            disabled={!champLocal || champSaving}
-            className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-              champSaved
-                ? 'bg-green-100 text-green-700'
-                : champLocal
-                ? 'bg-green-500 hover:bg-green-600 text-white'
-                : 'bg-gray-100 text-gray-400 cursor-default'
-            }`}
-          >
-            {champSaved ? '✓ Guardado' : champSaving ? 'Guardando...' : champLocal ? 'Guardar campeón y subcampeón' : '✓ Guardado'}
-          </button>
         </div>
       )}
 
