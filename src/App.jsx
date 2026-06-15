@@ -33,7 +33,7 @@ function MainApp() {
     { id: 'pronosticos', label: 'Pronósticos',  icon: '⚽' },
     { id: 'mundial',     label: 'Mundial',      icon: '🌍' },
     ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: '⚙️' }] : []),
-    { id: 'logs',        label: 'Logs',         icon: '📝' },
+    ...(isAdmin ? [{ id: 'logs',  label: 'Logs',  icon: '📝' }] : []),
   ]
 
   const renderTab = () => {
@@ -42,7 +42,7 @@ function MainApp() {
       case 'pronosticos': return <MisPronósticos />
       case 'mundial':     return <Mundial />
       case 'admin':       return isAdmin ? <Admin /> : null
-      case 'logs':        return <Logs />
+      case 'logs':        return isAdmin ? <Logs /> : null
       default:            return null
     }
   }

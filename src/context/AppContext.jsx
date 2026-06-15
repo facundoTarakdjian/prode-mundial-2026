@@ -109,6 +109,7 @@ export function AppProvider({ children }) {
     const { data } = await supabase.from('configuracion_puntos').select('*').eq('id', 1).maybeSingle()
     if (data) setScoring({
       exactResult:    data.exact_result,
+      groupExact:     data.group_exact ?? 1,
       qualifierHit:   data.qualifier_hit,
       champion:       data.champion,
       subchampion:    data.subchampion,
@@ -356,6 +357,7 @@ export function AppProvider({ children }) {
     await supabase.from('configuracion_puntos').upsert({
       id:              1,
       exact_result:    newScoring.exactResult,
+      group_exact:     newScoring.groupExact,
       qualifier_hit:   newScoring.qualifierHit,
       champion:        newScoring.champion,
       subchampion:     newScoring.subchampion,
@@ -378,6 +380,9 @@ export function AppProvider({ children }) {
       const sign = (a, b) => a > b ? 1 : a < b ? -1 : 0
       if (sign(parseInt(pResult.home), parseInt(pResult.away)) === sign(real.home, real.away)) {
         total += scoring.exactResult
+        if (parseInt(pResult.home) === real.home && parseInt(pResult.away) === real.away) {
+          total += scoring.groupExact ?? 0
+        }
       }
     }
 

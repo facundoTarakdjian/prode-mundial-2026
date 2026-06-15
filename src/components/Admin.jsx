@@ -293,6 +293,7 @@ export default function Admin() {
           <div className="space-y-3">
             {[
               { key: 'exactResult',    label: 'Ganador o empate (grupos)',         icon: '⚽' },
+              { key: 'groupExact',     label: 'Resultado exacto (grupos)',          icon: '🎯' },
               { key: 'qualifierHit',   label: 'Cada clasificado a 16avos',         icon: '🎯' },
               { key: 'champion',       label: 'Campeón del mundo',                 icon: '🥇' },
               { key: 'subchampion',    label: 'Subcampeón',                        icon: '🥈' },

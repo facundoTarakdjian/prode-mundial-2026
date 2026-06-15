@@ -10,7 +10,8 @@ export const LS = {
 }
 
 export const DEFAULT_SCORING = {
-  exactResult:    1,  // resultado exacto grupos
+  exactResult:    2,  // ganador o empate (grupos)
+  groupExact:     1,  // punto extra por resultado exacto (grupos)
   qualifierHit:   1,  // cada clasificado a 16avos
   champion:       5,  // campeón
   subchampion:    3,  // subcampeón

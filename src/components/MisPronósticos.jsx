@@ -88,6 +88,13 @@ export default function MisPronósticos() {
   const [knockInputs, setKnockInputs] = useState({})
   const [savedKnock,  setSavedKnock]  = useState({})
 
+  // ── Errores de validación ─────────────────────────────
+  const [groupErrors, setGroupErrors] = useState({}) // { [matchId]: string }
+  const [knockErrors, setKnockErrors] = useState({}) // { [matchId]: string }
+
+  // ── Orden vista grupos ────────────────────────────────
+  const [groupOrder, setGroupOrder] = useState('group') // 'group' | 'date'
+
   // Datos guardados del usuario
   const saved = predictions[session] || { groups: {}, qualifiers: [], champion: '', subchampion: '', knockout: {} }
   const groupPreds  = saved.groups      || {}
@@ -106,13 +113,18 @@ export default function MisPronósticos() {
     const match = GROUP_MATCHES.find(m => m.id === matchId)
     if (isMatchLocked(match.date)) return
     setGroupInputs(prev => ({ ...prev, [matchId]: { ...(prev[matchId] || {}), [side]: val } }))
+    if (groupErrors[matchId]) setGroupErrors(prev => { const n = { ...prev }; delete n[matchId]; return n })
   }
 
   const handleSaveGroup = async (matchId) => {
-    const inp    = groupInputs[matchId] || {}
-    const cur    = groupPreds[matchId]  || { home: '', away: '' }
-    const home   = inp.home !== undefined ? inp.home : cur.home
-    const away   = inp.away !== undefined ? inp.away : cur.away
+    const inp  = groupInputs[matchId] || {}
+    const cur  = groupPreds[matchId]  || { home: '', away: '' }
+    const home = inp.home !== undefined ? inp.home : cur.home
+    const away = inp.away !== undefined ? inp.away : cur.away
+    if (home === '' || home == null || away === '' || away == null) {
+      setGroupErrors(prev => ({ ...prev, [matchId]: 'Completá ambos resultados antes de guardar' }))
+      return
+    }
     await updateGroupPred(session, matchId, home, away)
     setGroupInputs(prev => { const n = { ...prev }; delete n[matchId]; return n })
     setSavedGroups(prev => ({ ...prev, [matchId]: true }))
@@ -169,6 +181,7 @@ export default function MisPronósticos() {
   // ── Handlers eliminatorias ────────────────────────────
   const handleKnockInput = (matchId, field, val) => {
     setKnockInputs(prev => ({ ...prev, [matchId]: { ...(prev[matchId] || {}), [field]: val } }))
+    if (knockErrors[matchId]) setKnockErrors(prev => { const n = { ...prev }; delete n[matchId]; return n })
   }
 
   const handleSaveKnock = async (matchId) => {
@@ -179,10 +192,89 @@ export default function MisPronósticos() {
       awayGoals: inp.awayGoals !== undefined ? inp.awayGoals : (cur.awayGoals ?? ''),
       winner:    inp.winner    !== undefined ? inp.winner    : (cur.winner    ?? ''),
     }
+    if (data.homeGoals === '' || data.homeGoals == null || data.awayGoals === '' || data.awayGoals == null) {
+      setKnockErrors(prev => ({ ...prev, [matchId]: 'Completá ambos resultados antes de guardar' }))
+      return
+    }
     await updateKnockoutPred(session, matchId, data)
     setKnockInputs(prev => { const n = { ...prev }; delete n[matchId]; return n })
     setSavedKnock(prev => ({ ...prev, [matchId]: true }))
     setTimeout(() => setSavedKnock(prev => { const n = { ...prev }; delete n[matchId]; return n }), 2000)
+  }
+
+  // ── Tarjeta de partido (reutilizada en ambos modos) ──
+  const renderMatchCard = (m, showGroupBadge = false) => {
+    const locked       = isMatchLocked(m.date)
+    const inp          = groupInputs[m.id] || {}
+    const cur          = groupPreds[m.id]  || { home: '', away: '' }
+    const displayHome  = inp.home !== undefined ? inp.home : cur.home
+    const displayAway  = inp.away !== undefined ? inp.away : cur.away
+    const isLocalDirty = !!groupInputs[m.id]
+    const hasSaved     = !!groupPreds[m.id]
+    const justSaved    = !!savedGroups[m.id]
+    const d            = new Date(m.date)
+    return (
+      <div key={m.id} className={`rounded-xl p-3 shadow-sm border ${locked ? 'bg-gray-50 border-gray-100' : 'bg-green-50 border-green-100'}`}>
+        {showGroupBadge && (
+          <div className="mb-2">
+            <span className="bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">Grupo {m.group}</span>
+          </div>
+        )}
+        {/* 3 columnas: local | marcador+fecha | visitante */}
+        <div className="grid grid-cols-3 items-center gap-2">
+          <div className="flex flex-col items-center text-center gap-1.5">
+            <Bandera pais={m.home} />
+            <span className="text-sm font-semibold text-gray-800 leading-tight">{m.home}</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2">
+              <ScoreInput value={displayHome} onChange={v => handleGroupInput(m.id, 'home', v)} locked={locked} />
+              <span className="text-gray-400 font-bold text-lg self-center">-</span>
+              <ScoreInput value={displayAway} onChange={v => handleGroupInput(m.id, 'away', v)} locked={locked} />
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-gray-400">{formatFecha(d)}</div>
+              {locked && <div className="text-xs text-red-400 mt-0.5">🔒 bloqueado</div>}
+            </div>
+          </div>
+          <div className="flex flex-col items-center text-center gap-1.5">
+            <Bandera pais={m.away} />
+            <span className="text-sm font-semibold text-gray-800 leading-tight">{m.away}</span>
+          </div>
+        </div>
+        {/* Acciones */}
+        {!locked && (
+          <div className="flex justify-end gap-1.5 mt-2 pt-2 border-t border-green-100">
+            <button
+              onClick={() => handleSaveGroup(m.id)}
+              disabled={!isLocalDirty}
+              className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
+                justSaved
+                  ? 'bg-green-100 text-green-700'
+                  : isLocalDirty
+                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                  : hasSaved
+                  ? 'bg-green-100 text-green-700 cursor-default'
+                  : 'bg-gray-100 text-gray-400 cursor-default'
+              }`}
+            >
+              {justSaved ? '✓ Guardado' : isLocalDirty ? 'Guardar' : hasSaved ? '✓ Guardado' : 'Guardar'}
+            </button>
+            {hasSaved && (
+              <button
+                onClick={() => handleDeleteGroup(m.id)}
+                className="text-xs px-2.5 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 transition-colors"
+              >
+                Borrar
+              </button>
+            )}
+          </div>
+        )}
+        {groupErrors[m.id] && (
+          <p className="text-xs text-red-500 mt-1.5 text-center">{groupErrors[m.id]}</p>
+        )}
+      </div>
+    )
   }
 
   const sections = [
@@ -213,87 +305,43 @@ export default function MisPronósticos() {
       {/* ── SECCIÓN GRUPOS ── */}
       {activeSection === 'groups' && (
         <div className="space-y-4">
-          {Object.entries(GROUPS).map(([g, teams]) => {
-            const matches = GROUP_MATCHES.filter(m => m.group === g)
-            return (
+          {/* Toggle orden */}
+          <div className="bg-white rounded-2xl shadow p-1 flex gap-1">
+            {[{ id: 'group', label: 'Por grupo' }, { id: 'date', label: 'Por fecha' }].map(o => (
+              <button
+                key={o.id}
+                onClick={() => setGroupOrder(o.id)}
+                className={`flex-1 py-1.5 rounded-xl text-sm font-medium transition-colors ${
+                  groupOrder === o.id ? 'bg-green-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+
+          {groupOrder === 'group' ? (
+            // ── Vista por grupo ──
+            Object.entries(GROUPS).map(([g, teams]) => (
               <div key={g} className="bg-white rounded-2xl shadow p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">Grupo {g}</span>
                   <span className="text-xs text-gray-500">{teams.join(' · ')}</span>
                 </div>
                 <div className="space-y-2">
-                  {matches.map(m => {
-                    const locked      = isMatchLocked(m.date)
-                    const inp         = groupInputs[m.id] || {}
-                    const cur         = groupPreds[m.id]  || { home: '', away: '' }
-                    const displayHome = inp.home !== undefined ? inp.home : cur.home
-                    const displayAway = inp.away !== undefined ? inp.away : cur.away
-                    const isLocalDirty = !!groupInputs[m.id]
-                    const hasSaved     = !!groupPreds[m.id]
-                    const justSaved    = !!savedGroups[m.id]
-                    const d = new Date(m.date)
-                    return (
-                      <div key={m.id} className={`rounded-xl p-3 shadow-sm border ${locked ? 'bg-gray-50 border-gray-100' : 'bg-green-50 border-green-100'}`}>
-                        {/* 3 columnas: local | marcador+fecha | visitante */}
-                        <div className="grid grid-cols-3 items-center gap-2">
-                          {/* Local */}
-                          <div className="flex flex-col items-center text-center gap-1.5">
-                            <Bandera pais={m.home} />
-                            <span className="text-sm font-semibold text-gray-800 leading-tight">{m.home}</span>
-                          </div>
-                          {/* Centro: inputs + fecha */}
-                          <div className="flex flex-col items-center gap-2">
-                            <div className="flex items-center gap-2">
-                              <ScoreInput value={displayHome} onChange={v => handleGroupInput(m.id, 'home', v)} locked={locked} />
-                              <span className="text-gray-400 font-bold text-lg self-center">-</span>
-                              <ScoreInput value={displayAway} onChange={v => handleGroupInput(m.id, 'away', v)} locked={locked} />
-                            </div>
-                            <div className="text-center">
-                              <div className="text-xs text-gray-400">{formatFecha(d)}</div>
-                              {locked && <div className="text-xs text-red-400 mt-0.5">🔒 bloqueado</div>}
-                            </div>
-                          </div>
-                          {/* Visitante */}
-                          <div className="flex flex-col items-center text-center gap-1.5">
-                            <Bandera pais={m.away} />
-                            <span className="text-sm font-semibold text-gray-800 leading-tight">{m.away}</span>
-                          </div>
-                        </div>
-                        {/* Acciones */}
-                        {!locked && (
-                          <div className="flex justify-end gap-1.5 mt-2 pt-2 border-t border-green-100">
-                            <button
-                              onClick={() => handleSaveGroup(m.id)}
-                              disabled={!isLocalDirty}
-                              className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
-                                justSaved
-                                  ? 'bg-green-100 text-green-700'
-                                  : isLocalDirty
-                                  ? 'bg-green-500 hover:bg-green-600 text-white'
-                                  : hasSaved
-                                  ? 'bg-green-100 text-green-700 cursor-default'
-                                  : 'bg-gray-100 text-gray-400 cursor-default'
-                              }`}
-                            >
-                              {justSaved ? '✓ Guardado' : isLocalDirty ? 'Guardar' : hasSaved ? '✓ Guardado' : 'Guardar'}
-                            </button>
-                            {hasSaved && (
-                              <button
-                                onClick={() => handleDeleteGroup(m.id)}
-                                className="text-xs px-2.5 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 transition-colors"
-                              >
-                                Borrar
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                  {GROUP_MATCHES.filter(m => m.group === g).map(m => renderMatchCard(m, false))}
                 </div>
               </div>
-            )
-          })}
+            ))
+          ) : (
+            // ── Vista por fecha ──
+            <div className="space-y-2">
+              {[...GROUP_MATCHES]
+                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                .map(m => renderMatchCard(m, true))
+              }
+            </div>
+          )}
         </div>
       )}
 
@@ -557,6 +605,9 @@ export default function MisPronósticos() {
                         >
                           {justSaved ? '✓ Guardado' : isLocalDirty ? 'Guardar' : knockPreds[matchId] ? '✓ Guardado' : 'Guardar'}
                         </button>
+                        {knockErrors[matchId] && (
+                          <p className="text-xs text-red-500 text-center">{knockErrors[matchId]}</p>
+                        )}
                       </div>
                     )
                   })}

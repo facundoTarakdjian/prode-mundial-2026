@@ -20,16 +20,19 @@ export default function Ranking() {
     .sort((a, b) => b.points - a.points)
 
   // Partidos bloqueados (comenzaron), independientemente de si hay resultado real
-  const lockedGroupMatches = GROUP_MATCHES.filter(
-    m => new Date() >= new Date(m.date + '-03:00')
-  )
+  const lockedGroupMatches = GROUP_MATCHES
+    .filter(m => new Date() >= new Date(m.date + '-03:00'))
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
 
   const pointsForGroupMatch = (username, matchId) => {
     const pred = predictions[username]?.groups?.[matchId]
     const real = realResults[matchId]
     if (!real || !pred || pred.home === '' || pred.away === '') return null
-    return sign(parseInt(pred.home), parseInt(pred.away)) === sign(real.home, real.away)
-      ? scoring.exactResult : 0
+    if (sign(parseInt(pred.home), parseInt(pred.away)) !== sign(real.home, real.away)) return 0
+    const base  = scoring.exactResult
+    const exact = parseInt(pred.home) === real.home && parseInt(pred.away) === real.away
+      ? (scoring.groupExact ?? 0) : 0
+    return base + exact
   }
 
   const sections = [
@@ -91,7 +94,13 @@ export default function Ranking() {
               Aún no comenzó ningún partido.
             </div>
           ) : (
-            Object.entries(GROUPS).map(([g]) => {
+            Object.entries(GROUPS)
+            .sort(([ga], [gb]) => {
+              const latestA = lockedGroupMatches.find(m => m.group === ga)?.date ?? ''
+              const latestB = lockedGroupMatches.find(m => m.group === gb)?.date ?? ''
+              return latestB.localeCompare(latestA)
+            })
+            .map(([g]) => {
               const matches = lockedGroupMatches.filter(m => m.group === g)
               if (matches.length === 0) return null
               return (
@@ -135,18 +144,20 @@ export default function Ranking() {
                           {/* Pronósticos de jugadores */}
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                             {ALL_USERNAMES.map(username => {
-                              const pred = predictions[username]?.groups?.[m.id]
-                              const pts  = pointsForGroupMatch(username, m.id) // null si no hay resultado real
-                              const hit  = pts === scoring.exactResult
+                              const pred    = predictions[username]?.groups?.[m.id]
+                              const pts     = pointsForGroupMatch(username, m.id) // null si no hay resultado real
+                              const exact   = pts !== null && pts > scoring.exactResult  // resultado exacto (pts extra)
+                              const hit     = pts === scoring.exactResult                // ganador/empate sin exacto
+                              const miss    = pts === 0
                               return (
                                 <div
                                   key={username}
                                   className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs ${
-                                    hit ? 'bg-green-100' : pts === 0 ? 'bg-red-50' : 'bg-white border border-gray-100'
+                                    exact ? 'bg-yellow-100' : hit ? 'bg-green-100' : miss ? 'bg-red-50' : 'bg-white border border-gray-100'
                                   }`}
                                 >
                                   <span className="font-semibold text-gray-700">{username}</span>
-                                  <span className={`font-bold ${hit ? 'text-green-700' : pts === 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                                  <span className={`font-bold ${exact ? 'text-yellow-700' : hit ? 'text-green-700' : miss ? 'text-red-400' : 'text-gray-400'}`}>
                                     {pred ? `${pred.home}-${pred.away}` : '—'}
                                     {pts !== null
                                       ? <span className="ml-1">· {pts}pt</span>
