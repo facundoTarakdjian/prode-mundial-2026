@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { ALL_USERNAMES } from '../constants/users'
-import { GROUP_MATCHES, GROUPS, KNOCKOUT_ROUNDS } from '../constants/fixture'
+import { GROUP_MATCHES, KNOCKOUT_ROUNDS } from '../constants/fixture'
 import Bandera from './Bandera'
 
 const MUNDIAL_START = '2026-06-11T16:00:00-03:00'
@@ -94,85 +94,70 @@ export default function Ranking() {
               Aún no comenzó ningún partido.
             </div>
           ) : (
-            Object.entries(GROUPS)
-            .sort(([ga], [gb]) => {
-              const latestA = lockedGroupMatches.find(m => m.group === ga)?.date ?? ''
-              const latestB = lockedGroupMatches.find(m => m.group === gb)?.date ?? ''
-              return latestB.localeCompare(latestA)
-            })
-            .map(([g]) => {
-              const matches = lockedGroupMatches.filter(m => m.group === g)
-              if (matches.length === 0) return null
+            [...lockedGroupMatches]
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .map(m => {
+              const real = realResults[m.id] ?? null
               return (
-                <div key={g} className="bg-white rounded-2xl shadow p-4">
-                  <span className="bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded-full mb-3 inline-block">
-                    Grupo {g}
-                  </span>
-                  <div className="space-y-3">
-                    {matches.map(m => {
-                      const real = realResults[m.id] ?? null
-                      return (
-                        <div key={m.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                          {/* Cabecera: equipos + resultado (o pendiente) */}
-                          <div className="grid grid-cols-3 items-center gap-2 pb-3 border-b border-gray-200 mb-3">
-                            <div className="flex flex-col items-center text-center gap-1">
-                              <Bandera pais={m.home} />
-                              <span className="text-sm font-semibold text-gray-800">{m.home}</span>
+                <div key={m.id} className="bg-white rounded-2xl shadow p-4">
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                    {/* Cabecera: equipos + resultado (o pendiente) */}
+                    <div className="grid grid-cols-3 items-center gap-2 pb-3 border-b border-gray-200 mb-3">
+                      <div className="flex flex-col items-center text-center gap-1">
+                        <Bandera pais={m.home} />
+                        <span className="text-sm font-semibold text-gray-800">{m.home}</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        {real ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <span className="text-2xl font-bold text-gray-800">{real.home}</span>
+                              <span className="text-gray-400 font-bold text-lg">-</span>
+                              <span className="text-2xl font-bold text-gray-800">{real.away}</span>
                             </div>
-                            <div className="flex flex-col items-center gap-0.5">
-                              {real ? (
-                                <>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-2xl font-bold text-gray-800">{real.home}</span>
-                                    <span className="text-gray-400 font-bold text-lg">-</span>
-                                    <span className="text-2xl font-bold text-gray-800">{real.away}</span>
-                                  </div>
-                                  <span className="text-xs text-gray-400">Resultado final</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="text-gray-300 font-bold text-lg">? - ?</span>
-                                  <span className="text-xs text-amber-500">Pendiente</span>
-                                </>
-                              )}
-                            </div>
-                            <div className="flex flex-col items-center text-center gap-1">
-                              <Bandera pais={m.away} />
-                              <span className="text-sm font-semibold text-gray-800">{m.away}</span>
-                            </div>
+                            <span className="text-xs text-gray-400">Resultado final</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-gray-300 font-bold text-lg">? - ?</span>
+                            <span className="text-xs text-amber-500">Pendiente</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-center text-center gap-1">
+                        <Bandera pais={m.away} />
+                        <span className="text-sm font-semibold text-gray-800">{m.away}</span>
+                      </div>
+                    </div>
+                    {/* Pronósticos de jugadores */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      {ALL_USERNAMES.map(username => {
+                        const pred    = predictions[username]?.groups?.[m.id]
+                        const pts     = pointsForGroupMatch(username, m.id) // null si no hay resultado real
+                        const exact   = pts !== null && pts > scoring.exactResult  // resultado exacto (pts extra)
+                        const hit     = pts === scoring.exactResult                // ganador/empate sin exacto
+                        const miss    = pts === 0
+                        return (
+                          <div
+                            key={username}
+                            className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs ${
+                              exact ? 'bg-yellow-100' : hit ? 'bg-green-100' : miss ? 'bg-red-50' : 'bg-white border border-gray-100'
+                            }`}
+                          >
+                            <span className="font-semibold text-gray-700">{username}</span>
+                            <span className={`font-bold ${exact ? 'text-yellow-700' : hit ? 'text-green-700' : miss ? 'text-red-400' : 'text-gray-400'}`}>
+                              {pred ? `${pred.home}-${pred.away}` : '—'}
+                              {pts !== null
+                                ? <span className="ml-1">· {pts}pt</span>
+                                : pred
+                                  ? <span className="ml-1 text-gray-300">· ?pt</span>
+                                  : null
+                              }
+                            </span>
                           </div>
-                          {/* Pronósticos de jugadores */}
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                            {ALL_USERNAMES.map(username => {
-                              const pred    = predictions[username]?.groups?.[m.id]
-                              const pts     = pointsForGroupMatch(username, m.id) // null si no hay resultado real
-                              const exact   = pts !== null && pts > scoring.exactResult  // resultado exacto (pts extra)
-                              const hit     = pts === scoring.exactResult                // ganador/empate sin exacto
-                              const miss    = pts === 0
-                              return (
-                                <div
-                                  key={username}
-                                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs ${
-                                    exact ? 'bg-yellow-100' : hit ? 'bg-green-100' : miss ? 'bg-red-50' : 'bg-white border border-gray-100'
-                                  }`}
-                                >
-                                  <span className="font-semibold text-gray-700">{username}</span>
-                                  <span className={`font-bold ${exact ? 'text-yellow-700' : hit ? 'text-green-700' : miss ? 'text-red-400' : 'text-gray-400'}`}>
-                                    {pred ? `${pred.home}-${pred.away}` : '—'}
-                                    {pts !== null
-                                      ? <span className="ml-1">· {pts}pt</span>
-                                      : pred
-                                        ? <span className="ml-1 text-gray-300">· ?pt</span>
-                                        : null
-                                    }
-                                  </span>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
               )
