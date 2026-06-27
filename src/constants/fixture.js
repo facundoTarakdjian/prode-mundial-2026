@@ -158,3 +158,96 @@ export const KNOCKOUT_ROUNDS = [
   { id: 'SF',  label: 'Semifinales',      matchCount: 2 },
   { id: 'F',   label: 'Final',            matchCount: 1 },
 ]
+
+// ── Fixture de 16avos (R32) ────────────────────────────────────────────────
+// Fechas en UTC (Argentina = UTC-3)
+export const R32_FIXTURE = [
+  { id: 'R32_1',  date: '2026-06-28T19:00:00Z', home: 'Sudáfrica',              away: 'Canadá',                      stadium: 'SoFi Stadium',             city: 'Los Angeles' },
+  { id: 'R32_2',  date: '2026-06-29T17:00:00Z', home: 'Brasil',                 away: 'Japón',                       stadium: 'NRG Stadium',              city: 'Houston' },
+  { id: 'R32_3',  date: '2026-06-29T20:30:00Z', home: 'Alemania',               away: 'Por definir (3° A/B/C/D/F)',  stadium: 'Gillette Stadium',         city: 'Boston' },
+  { id: 'R32_4',  date: '2026-06-30T01:00:00Z', home: 'Países Bajos',           away: 'Marruecos',                   stadium: 'Estadio BBVA',             city: 'Monterrey' },
+  { id: 'R32_5',  date: '2026-06-30T17:00:00Z', home: 'Costa de Marfil',        away: 'Noruega',                     stadium: 'AT&T Stadium',             city: 'Dallas' },
+  { id: 'R32_6',  date: '2026-06-30T21:00:00Z', home: 'Francia',                away: 'Por definir (3° C/D/F/G/H)',  stadium: 'MetLife Stadium',          city: 'Nueva York/NJ' },
+  { id: 'R32_7',  date: '2026-07-01T01:00:00Z', home: 'México',                 away: 'Por definir (3° C/E/F/H/I)',  stadium: 'Est. Ciudad de México',    city: 'México DF' },
+  { id: 'R32_8',  date: '2026-07-01T16:00:00Z', home: 'Por definir (1°L)',      away: 'Por definir (3° varios)',     stadium: 'Mercedes-Benz Stadium',    city: 'Atlanta' },
+  { id: 'R32_9',  date: '2026-07-01T20:00:00Z', home: 'Por definir (1°G)',      away: 'Por definir (3° varios)',     stadium: 'Lumen Field',              city: 'Seattle' },
+  { id: 'R32_10', date: '2026-07-02T00:00:00Z', home: 'Estados Unidos',         away: 'Bosnia y Herzegovina',        stadium: "Levi's Stadium",           city: 'San Francisco' },
+  { id: 'R32_11', date: '2026-07-02T19:00:00Z', home: 'Por definir (1°H)',      away: 'Por definir (2°J)',           stadium: 'Hard Rock Stadium',        city: 'Miami' },
+  { id: 'R32_12', date: '2026-07-02T23:00:00Z', home: 'Por definir (2°K)',      away: 'Por definir (2°L)',           stadium: 'BC Place',                 city: 'Vancouver' },
+  { id: 'R32_13', date: '2026-07-03T03:00:00Z', home: 'Suiza',                  away: 'Por definir (3° E/F/G/I/J)', stadium: 'Arrowhead Stadium',        city: 'Kansas City' },
+  { id: 'R32_14', date: '2026-07-03T18:00:00Z', home: 'Australia',              away: 'Por definir (2°G)',           stadium: 'AT&T Stadium',             city: 'Dallas' },
+  { id: 'R32_15', date: '2026-07-03T22:00:00Z', home: 'Argentina',              away: 'Por definir (2°H)',           stadium: 'Hard Rock Stadium',        city: 'Miami' },
+  { id: 'R32_16', date: '2026-07-04T01:30:00Z', home: 'Por definir (1°K)',      away: 'Por definir (3° D/E/I/J/L)', stadium: 'Arrowhead Stadium',        city: 'Kansas City' },
+]
+
+// Fechas aproximadas de octavos (para bloqueo de pronósticos)
+export const R16_FIXTURE = [
+  { id: 'R16_1', date: '2026-07-05T19:00:00Z', stadium: 'Lincoln Financial Field', city: 'Philadelphia' },
+  { id: 'R16_2', date: '2026-07-05T23:00:00Z', stadium: 'NRG Stadium',             city: 'Houston' },
+  { id: 'R16_3', date: '2026-07-06T19:00:00Z', stadium: 'MetLife Stadium',         city: 'Nueva York/NJ' },
+  { id: 'R16_4', date: '2026-07-06T23:00:00Z', stadium: 'Estadio Azteca',          city: 'México DF' },
+  { id: 'R16_5', date: '2026-07-07T19:00:00Z', stadium: 'AT&T Stadium',            city: 'Dallas' },
+  { id: 'R16_6', date: '2026-07-07T23:00:00Z', stadium: 'Lumen Field',             city: 'Seattle' },
+  { id: 'R16_7', date: '2026-07-08T19:00:00Z', stadium: 'Mercedes-Benz Stadium',   city: 'Atlanta' },
+  { id: 'R16_8', date: '2026-07-08T23:00:00Z', stadium: 'BC Place',                city: 'Vancouver' },
+]
+
+// Fechas aproximadas de cuartos, semis y final
+export const QF_FIXTURE = [
+  { id: 'QF_1', date: '2026-07-11T19:00:00Z' },
+  { id: 'QF_2', date: '2026-07-11T23:00:00Z' },
+  { id: 'QF_3', date: '2026-07-12T19:00:00Z' },
+  { id: 'QF_4', date: '2026-07-12T23:00:00Z' },
+]
+export const SF_FIXTURE = [
+  { id: 'SF_1', date: '2026-07-15T19:00:00Z' },
+  { id: 'SF_2', date: '2026-07-16T19:00:00Z' },
+]
+export const F_FIXTURE = [
+  { id: 'F_1', date: '2026-07-19T19:00:00Z' },
+]
+
+// Lookup rápido matchId → fecha UTC
+export const KNOCKOUT_MATCH_DATES = Object.fromEntries(
+  [...R32_FIXTURE, ...R16_FIXTURE, ...QF_FIXTURE, ...SF_FIXTURE, ...F_FIXTURE]
+    .map(m => [m.id, m.date])
+)
+
+// Propagación del cuadro: ganador de cada llave → posición en siguiente ronda
+// { matchId: { next: matchId, slot: 'home' | 'away' } }
+export const BRACKET_PROPAGATION = {
+  // R32 → R16
+  'R32_1':  { next: 'R16_2', slot: 'home' },
+  'R32_2':  { next: 'R16_1', slot: 'home' },
+  'R32_3':  { next: 'R16_2', slot: 'away' },
+  'R32_4':  { next: 'R16_3', slot: 'home' },
+  'R32_5':  { next: 'R16_1', slot: 'away' },
+  'R32_6':  { next: 'R16_3', slot: 'away' },
+  'R32_7':  { next: 'R16_4', slot: 'home' },
+  'R32_8':  { next: 'R16_4', slot: 'away' },
+  'R32_9':  { next: 'R16_6', slot: 'home' },
+  'R32_10': { next: 'R16_6', slot: 'away' },
+  'R32_11': { next: 'R16_5', slot: 'home' },
+  'R32_12': { next: 'R16_5', slot: 'away' },
+  'R32_13': { next: 'R16_8', slot: 'home' },
+  'R32_14': { next: 'R16_7', slot: 'home' },
+  'R32_15': { next: 'R16_8', slot: 'away' },
+  'R32_16': { next: 'R16_7', slot: 'away' },
+  // R16 → QF
+  'R16_1': { next: 'QF_1', slot: 'home' },
+  'R16_2': { next: 'QF_1', slot: 'away' },
+  'R16_3': { next: 'QF_2', slot: 'home' },
+  'R16_4': { next: 'QF_2', slot: 'away' },
+  'R16_5': { next: 'QF_3', slot: 'home' },
+  'R16_6': { next: 'QF_3', slot: 'away' },
+  'R16_7': { next: 'QF_4', slot: 'home' },
+  'R16_8': { next: 'QF_4', slot: 'away' },
+  // QF → SF
+  'QF_1': { next: 'SF_1', slot: 'home' },
+  'QF_2': { next: 'SF_1', slot: 'away' },
+  'QF_3': { next: 'SF_2', slot: 'home' },
+  'QF_4': { next: 'SF_2', slot: 'away' },
+  // SF → F
+  'SF_1': { next: 'F_1', slot: 'home' },
+  'SF_2': { next: 'F_1', slot: 'away' },
+}

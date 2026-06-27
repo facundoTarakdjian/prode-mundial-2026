@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { ALL_USERNAMES } from '../constants/users'
-import { GROUP_MATCHES, KNOCKOUT_ROUNDS } from '../constants/fixture'
+import { GROUP_MATCHES, KNOCKOUT_ROUNDS, KNOCKOUT_MATCH_DATES } from '../constants/fixture'
 import Bandera from './Bandera'
 
 const MUNDIAL_START = '2026-06-11T16:00:00-03:00'
@@ -9,6 +9,12 @@ const sign = (a, b) => a > b ? 1 : a < b ? -1 : 0
 
 function isMundialStarted() {
   return new Date() >= new Date(MUNDIAL_START)
+}
+
+function isKnockoutMatchLocked(matchId) {
+  const dateUtc = KNOCKOUT_MATCH_DATES[matchId]
+  if (!dateUtc) return false
+  return new Date() >= new Date(dateUtc)
 }
 
 export default function Ranking() {
@@ -202,32 +208,23 @@ export default function Ranking() {
                         <p className="text-xs text-gray-300">No guardó clasificados.</p>
                       ) : (
                         <div className="flex flex-wrap gap-1.5">
-                          {/* Si hay reales, mostrar los 32 reales comparando con los del jugador */}
-                          {hasReal
-                            ? realQualifiers.map(country => {
-                                const hit = preds.includes(country)
-                                return (
-                                  <span
-                                    key={country}
-                                    className={`text-xs px-2 py-0.5 rounded-full border ${
-                                      hit
-                                        ? 'bg-green-100 text-green-700 border-green-200'
-                                        : 'bg-gray-50 text-gray-300 border-gray-100'
-                                    }`}
-                                  >
-                                    {hit ? '✓ ' : ''}{country}
-                                  </span>
-                                )
-                              })
-                            : preds.map(country => (
-                                <span
-                                  key={country}
-                                  className="text-xs px-2 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200"
-                                >
-                                  {country}
-                                </span>
-                              ))
-                          }
+                          {/* Mostrar TODOS los pronosticados por el jugador:
+                              verde+tilde si clasificó, gris+tachado si no clasificó */}
+                          {preds.map(country => {
+                            const hit  = hasReal ? realQualifiers.includes(country) : null
+                            return (
+                              <span
+                                key={country}
+                                className={`text-xs px-2 py-0.5 rounded-full border ${
+                                  hit === true  ? 'bg-green-100 text-green-700 border-green-200' :
+                                  hit === false ? 'bg-gray-50 text-gray-400 border-gray-100 line-through' :
+                                  'bg-green-50 text-green-700 border-green-200'
+                                }`}
+                              >
+                                {hit === true ? '✓ ' : ''}{country}
+                              </span>
+                            )
+                          })}
                         </div>
                       )}
                     </div>
@@ -304,9 +301,11 @@ export default function Ranking() {
 
       {/* ── ELIMINACIÓN ── */}
       {activeSection === 'knockout' && (() => {
-        // Mostrar partidos que ya tienen equipos definidos (bloqueados), con o sin resultado
+        // Solo mostrar llaves cuyo horario ya pasó (mismo criterio de bloqueo de pronósticos)
         const definedMatches = Object.entries(knockoutData).filter(
-          ([id, data]) => !id.includes('winner') && !id.includes('runner') && data.home
+          ([id, data]) =>
+            !id.includes('winner') && !id.includes('runner') &&
+            data.home && isKnockoutMatchLocked(id)
         )
         if (definedMatches.length === 0) {
           return (

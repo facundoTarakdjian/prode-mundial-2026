@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
-import { GROUP_MATCHES, GROUPS, ALL_COUNTRIES, KNOCKOUT_ROUNDS } from '../constants/fixture'
+import { GROUP_MATCHES, GROUPS, ALL_COUNTRIES, KNOCKOUT_ROUNDS, R32_FIXTURE, R16_FIXTURE } from '../constants/fixture'
 import { DEFAULT_SCORING } from '../constants/storage'
 
 export default function Admin() {
@@ -8,13 +8,23 @@ export default function Admin() {
     session,
     realResults, setRealResult, deleteRealResult,
     realQualifiers, setRealQualifiersData,
-    knockoutData, setKnockoutMatch,
+    knockoutData, setKnockoutMatch, deleteKnockoutMatch,
     scoring, updateScoring,
   } = useApp()
 
-  const [activeSection, setActiveSection] = useState('results')
-  const [localScoring,  setLocalScoring]  = useState({ ...scoring })
-  const [savedScoring,  setSavedScoring]  = useState(false)
+  const [activeSection,       setActiveSection]       = useState('results')
+  const [activeKnockoutRound, setActiveKnockoutRound] = useState('R32')
+  const [localScoring,        setLocalScoring]        = useState({ ...scoring })
+  const [saveState,           setSaveState]           = useState(null)   // null | 'ok' | 'error'
+  const [saveErrMsg,          setSaveErrMsg]          = useState('')
+  const [knockSaveState,      setKnockSaveState]      = useState({})     // { matchId: 'ok'|'error'|null }
+
+  // Sincronizar localScoring cuando el contexto carga/actualiza scoring desde Supabase.
+  // Esto evita el race condition donde el componente monta antes de que loadScoring termine
+  // y queda con DEFAULT_SCORING en lugar de los valores reales.
+  useEffect(() => {
+    setLocalScoring({ ...scoring })
+  }, [scoring])
 
   // Local override state for form inputs (empty = fallback to context value)
   const [resultInputs, setResultInputs] = useState({})
@@ -46,33 +56,79 @@ export default function Admin() {
 
   // ── Eliminación directa ───────────────────────────────
   const saveKnockMatch = async (matchId) => {
-    const kd    = knockoutData[matchId]
-    const inp   = knockInputs[matchId] || {}
-    const home  = inp.home      ?? kd?.home      ?? ''
-    const away  = inp.away      ?? kd?.away      ?? ''
+    const kd     = knockoutData[matchId]
+    const inp    = knockInputs[matchId] || {}
+    const r32fix = R32_FIXTURE.find(f => f.id === matchId)
+    const home   = inp.home ?? kd?.home ?? r32fix?.home ?? ''
+    const away   = inp.away ?? kd?.away ?? r32fix?.away ?? ''
     if (!home || !away) return
 
-    const data = {
-      home,
-      away,
-      ...(inp.homeGoals != null ? { homeGoals: inp.homeGoals } : kd?.homeGoals != null ? { homeGoals: kd.homeGoals } : {}),
-      ...(inp.awayGoals != null ? { awayGoals: inp.awayGoals } : kd?.awayGoals != null ? { awayGoals: kd.awayGoals } : {}),
-      winner: inp.winner ?? kd?.winner ?? '',
+    const hgRaw = inp.homeGoals ?? kd?.homeGoals?.toString() ?? ''
+    const agRaw = inp.awayGoals ?? kd?.awayGoals?.toString() ?? ''
+    if (hgRaw === '' || agRaw === '') return
+
+    const hg = parseInt(hgRaw)
+    const ag = parseInt(agRaw)
+
+    // Ganador: lo que Chechu eligió en el dropdown, o auto-sugerencia si los goles difieren
+    const autoWinner = hg > ag ? home : ag > hg ? away : ''
+    const winner = inp.winner !== undefined ? inp.winner : (autoWinner || kd?.winner || '')
+    if (!winner) {
+      setKnockSaveState(prev => ({ ...prev, [matchId]: 'error' }))
+      setTimeout(() => setKnockSaveState(prev => ({ ...prev, [matchId]: null })), 2500)
+      return
     }
 
-    if (matchId === 'F_1' && data.winner) {
-      const runnerUp = data.winner === data.home ? data.away : data.home
-      await setKnockoutMatch('F_winner',    data.winner, session)
-      await setKnockoutMatch('F_runner_up', runnerUp,    session)
+    const data = { home, away, homeGoals: hg, awayGoals: ag, winner }
+
+    try {
+      if (matchId === 'F_1' && winner) {
+        const runnerUp = winner === home ? away : home
+        await setKnockoutMatch('F_winner',    winner,    session)
+        await setKnockoutMatch('F_runner_up', runnerUp,  session)
+      }
+      await setKnockoutMatch(matchId, data, session)
+      setKnockSaveState(prev => ({ ...prev, [matchId]: 'ok' }))
+    } catch (err) {
+      console.error('Error guardando llave', matchId, err)
+      setKnockSaveState(prev => ({ ...prev, [matchId]: 'error' }))
+    } finally {
+      setTimeout(() => setKnockSaveState(prev => ({ ...prev, [matchId]: null })), 2500)
     }
-    await setKnockoutMatch(matchId, data, session)
   }
 
   // ── Puntuación ────────────────────────────────────────
   const saveScoring = async () => {
-    await updateScoring(localScoring, session)
-    setSavedScoring(true)
-    setTimeout(() => setSavedScoring(false), 2000)
+    setSaveErrMsg('')
+    try {
+      await updateScoring(localScoring, session)
+      setSaveState('ok')
+    } catch (err) {
+      console.error('Error guardando configuración de puntos:', err)
+      setSaveErrMsg(err?.message || JSON.stringify(err))
+      setSaveState('error')
+    } finally {
+      setTimeout(() => setSaveState(null), 2500)
+    }
+  }
+
+  const handleDeleteKnock = async (matchId) => {
+    const kd     = knockoutData[matchId]
+    if (!kd) return   // nada que borrar
+    const inp    = knockInputs[matchId] || {}
+    const r32fix = R32_FIXTURE.find(f => f.id === matchId)
+    const home   = inp.home ?? kd?.home ?? r32fix?.home ?? matchId
+    const away   = inp.away ?? kd?.away ?? r32fix?.away ?? matchId
+    if (!window.confirm(`¿Borrar el resultado de ${home} vs ${away}? Esto eliminará la propagación a rondas siguientes.`)) return
+    try {
+      await deleteKnockoutMatch(matchId, session)
+      setKnockSaveState(prev => ({ ...prev, [matchId]: 'ok' }))
+    } catch (err) {
+      console.error('Error borrando llave', matchId, err)
+      setKnockSaveState(prev => ({ ...prev, [matchId]: 'error' }))
+    } finally {
+      setTimeout(() => setKnockSaveState(prev => ({ ...prev, [matchId]: null })), 2500)
+    }
   }
 
   const sections = [
@@ -200,89 +256,236 @@ export default function Admin() {
 
       {/* ── ELIMINACIÓN DIRECTA ── */}
       {activeSection === 'knockout' && (
-        <div className="space-y-4">
-          {KNOCKOUT_ROUNDS.map(round => (
-            <div key={round.id} className="bg-white rounded-2xl shadow p-4">
-              <h3 className="font-bold text-gray-700 mb-3">{round.label}</h3>
-              <div className="space-y-4">
-                {Array.from({ length: round.matchCount }, (_, i) => {
-                  const matchId = `${round.id}_${i + 1}`
-                  const kd      = knockoutData[matchId]
-                  const inp     = knockInputs[matchId] || {}
-                  const displayHome      = inp.home      ?? kd?.home      ?? ''
-                  const displayAway      = inp.away      ?? kd?.away      ?? ''
-                  const displayHomeGoals = inp.homeGoals ?? kd?.homeGoals?.toString() ?? ''
-                  const displayAwayGoals = inp.awayGoals ?? kd?.awayGoals?.toString() ?? ''
-                  const displayWinner    = inp.winner    ?? kd?.winner    ?? ''
-                  const update = (field, val) => setKnockInputs(prev => ({ ...prev, [matchId]: { ...(prev[matchId] || {}), [field]: val } }))
-                  return (
-                    <div key={matchId} className="bg-gray-50 rounded-xl p-3 space-y-2">
-                      <div className="text-xs text-gray-400 font-medium">Llave {i + 1}</div>
+        <div className="space-y-3">
+          {/* Sub-nav de rondas */}
+          <div className="bg-white rounded-2xl shadow p-1 flex gap-1">
+            {[
+              { id: 'R32', label: '16avos' },
+              { id: 'R16', label: '8avos'  },
+              { id: 'QF',  label: 'Cuartos' },
+              { id: 'SF',  label: 'Semis'  },
+              { id: 'F',   label: 'Final'  },
+            ].map(r => (
+              <button
+                key={r.id}
+                onClick={() => setActiveKnockoutRound(r.id)}
+                className={`flex-1 py-2 px-1 rounded-xl text-xs font-medium transition-colors ${
+                  activeKnockoutRound === r.id
+                    ? 'bg-amber-500 text-white shadow'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
 
-                      <div className="flex gap-2 items-center">
-                        <select
-                          value={displayHome}
-                          onChange={e => update('home', e.target.value)}
-                          className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
-                        >
-                          <option value="">Local</option>
-                          {ALL_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <span className="text-gray-400 text-xs">vs</span>
-                        <select
-                          value={displayAway}
-                          onChange={e => update('away', e.target.value)}
-                          className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
-                        >
-                          <option value="">Visitante</option>
-                          {ALL_COUNTRIES.filter(c => c !== displayHome).map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
+          {/* Contenido de la ronda activa */}
+          {KNOCKOUT_ROUNDS.filter(r => r.id === activeKnockoutRound).map(round => {
+            if (round.id === 'R32') {
+              return (
+                <div key={round.id} className="bg-white rounded-2xl shadow p-4">
+                  <h3 className="font-bold text-gray-700 mb-1">{round.label}</h3>
+                  <p className="text-xs text-gray-400 mb-3">Equipos "Por definir" se actualizan al confirmar los grupos.</p>
+                  <div className="space-y-3">
+                    {R32_FIXTURE.map((fixture, i) => {
+                      const matchId = fixture.id
+                      const kd  = knockoutData[matchId]
+                      const inp = knockInputs[matchId] || {}
+                      const displayHome      = inp.home      ?? kd?.home      ?? fixture.home
+                      const displayAway      = inp.away      ?? kd?.away      ?? fixture.away
+                      const displayHomeGoals = inp.homeGoals ?? kd?.homeGoals?.toString() ?? ''
+                      const displayAwayGoals = inp.awayGoals ?? kd?.awayGoals?.toString() ?? ''
+                      const update = (field, val) => setKnockInputs(prev => ({ ...prev, [matchId]: { ...(prev[matchId] || {}), [field]: val } }))
+                      const dateAR = new Date(fixture.date)
+                      const fechaLabel = `${['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][dateAR.getDay()]} ${dateAR.getDate()}/${dateAR.getMonth()+1} ${dateAR.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false})} hs`
+                      const selectHomeVal = displayHome.startsWith('Por definir') ? '' : displayHome
+                      const selectAwayVal = displayAway.startsWith('Por definir') ? '' : displayAway
+                      const hgNum = displayHomeGoals !== '' ? parseInt(displayHomeGoals) : NaN
+                      const agNum = displayAwayGoals !== '' ? parseInt(displayAwayGoals) : NaN
+                      const autoWinner = !isNaN(hgNum) && !isNaN(agNum)
+                        ? (hgNum > agNum ? selectHomeVal : agNum > hgNum ? selectAwayVal : '') : ''
+                      const displayWinner = inp.winner !== undefined ? inp.winner : (autoWinner || kd?.winner || '')
+                      const saveKS = knockSaveState[matchId]
+                      return (
+                        <div key={matchId} className="bg-gray-50 rounded-xl px-3 py-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs text-gray-400">
+                            <span className="font-medium">Llave {i + 1} · {fixture.city}</span>
+                            <span>{fechaLabel}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              value={selectHomeVal}
+                              onChange={e => update('home', e.target.value || fixture.home)}
+                              className="flex-1 min-w-0 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                            >
+                              <option value="">— Local —</option>
+                              {ALL_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <input
+                              type="number" min="0" max="20"
+                              value={displayHomeGoals}
+                              onChange={e => update('homeGoals', e.target.value)}
+                              placeholder="?"
+                              className="w-10 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                            />
+                            <span className="text-gray-400 text-xs shrink-0">-</span>
+                            <input
+                              type="number" min="0" max="20"
+                              value={displayAwayGoals}
+                              onChange={e => update('awayGoals', e.target.value)}
+                              placeholder="?"
+                              className="w-10 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                            />
+                            <select
+                              value={selectAwayVal}
+                              onChange={e => update('away', e.target.value || fixture.away)}
+                              className="flex-1 min-w-0 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                            >
+                              <option value="">— Visitante —</option>
+                              {ALL_COUNTRIES.filter(c => c !== selectHomeVal).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <button
+                              onClick={() => saveKnockMatch(matchId)}
+                              className={`shrink-0 text-xs px-2.5 py-1 rounded-lg transition-colors font-medium text-white ${
+                                saveKS === 'ok'    ? 'bg-green-500' :
+                                saveKS === 'error' ? 'bg-red-500'   :
+                                'bg-amber-500 hover:bg-amber-600'
+                              }`}
+                            >
+                              {saveKS === 'ok' ? '✓' : saveKS === 'error' ? '✗' : '✓ Guardar'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteKnock(matchId)}
+                              className={`shrink-0 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+                                kd ? 'bg-red-100 hover:bg-red-200 text-red-600' : 'bg-gray-100 text-gray-300 cursor-default'
+                              }`}
+                            >
+                              Borrar
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 shrink-0">¿Quién pasa?</span>
+                            <select
+                              value={displayWinner}
+                              onChange={e => update('winner', e.target.value)}
+                              className="flex-1 border border-gray-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                            >
+                              <option value="">— Seleccioná —</option>
+                              {selectHomeVal
+                                ? <option value={selectHomeVal}>{selectHomeVal}</option>
+                                : <option value="" disabled>— Local —</option>
+                              }
+                              {selectAwayVal && selectAwayVal !== selectHomeVal
+                                ? <option value={selectAwayVal}>{selectAwayVal}</option>
+                                : !selectAwayVal && <option value="" disabled>— Visitante —</option>
+                              }
+                            </select>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            }
+
+            // R16, QF, SF, F
+            return (
+              <div key={round.id} className="bg-white rounded-2xl shadow p-4">
+                <h3 className="font-bold text-gray-700 mb-3">{round.label}</h3>
+                <div className="space-y-3">
+                  {Array.from({ length: round.matchCount }, (_, i) => {
+                    const matchId = `${round.id}_${i + 1}`
+                    const kd  = knockoutData[matchId]
+                    const inp = knockInputs[matchId] || {}
+                    const displayHome      = inp.home      ?? kd?.home      ?? ''
+                    const displayAway      = inp.away      ?? kd?.away      ?? ''
+                    const displayHomeGoals = inp.homeGoals ?? kd?.homeGoals?.toString() ?? ''
+                    const displayAwayGoals = inp.awayGoals ?? kd?.awayGoals?.toString() ?? ''
+                    const update = (field, val) => setKnockInputs(prev => ({ ...prev, [matchId]: { ...(prev[matchId] || {}), [field]: val } }))
+                    const r16fix = round.id === 'R16' ? R16_FIXTURE[i] : null
+                    const hgNum = displayHomeGoals !== '' ? parseInt(displayHomeGoals) : NaN
+                    const agNum = displayAwayGoals !== '' ? parseInt(displayAwayGoals) : NaN
+                    const autoWinner = !isNaN(hgNum) && !isNaN(agNum)
+                      ? (hgNum > agNum ? displayHome : agNum > hgNum ? displayAway : '') : ''
+                    const displayWinner = inp.winner !== undefined ? inp.winner : (autoWinner || kd?.winner || '')
+                    const saveKS = knockSaveState[matchId]
+                    return (
+                      <div key={matchId} className="bg-gray-50 rounded-xl px-3 py-2 space-y-1.5">
+                        {r16fix && (
+                          <div className="text-xs text-gray-400 font-medium">Llave {i + 1} · {r16fix.city}</div>
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={displayHome}
+                            onChange={e => update('home', e.target.value)}
+                            className="flex-1 min-w-0 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                          >
+                            <option value="">— Local —</option>
+                            {ALL_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                          <input
+                            type="number" min="0" max="20"
+                            value={displayHomeGoals}
+                            onChange={e => update('homeGoals', e.target.value)}
+                            placeholder="?"
+                            className="w-10 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                          />
+                          <span className="text-gray-400 text-xs shrink-0">-</span>
+                          <input
+                            type="number" min="0" max="20"
+                            value={displayAwayGoals}
+                            onChange={e => update('awayGoals', e.target.value)}
+                            placeholder="?"
+                            className="w-10 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                          />
+                          <select
+                            value={displayAway}
+                            onChange={e => update('away', e.target.value)}
+                            className="flex-1 min-w-0 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                          >
+                            <option value="">— Visitante —</option>
+                            {ALL_COUNTRIES.filter(c => c !== displayHome).map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                          <button
+                            onClick={() => saveKnockMatch(matchId)}
+                            className={`shrink-0 text-xs px-2.5 py-1 rounded-lg transition-colors font-medium text-white ${
+                              saveKS === 'ok'    ? 'bg-green-500' :
+                              saveKS === 'error' ? 'bg-red-500'   :
+                              'bg-amber-500 hover:bg-amber-600'
+                            }`}
+                          >
+                            {saveKS === 'ok' ? '✓' : saveKS === 'error' ? '✗' : '✓ Guardar'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteKnock(matchId)}
+                            className={`shrink-0 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+                              kd ? 'bg-red-100 hover:bg-red-200 text-red-600' : 'bg-gray-100 text-gray-300 cursor-default'
+                            }`}
+                          >
+                            Borrar
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 shrink-0">¿Quién pasa?</span>
+                          <select
+                            value={displayWinner}
+                            onChange={e => update('winner', e.target.value)}
+                            className="flex-1 border border-gray-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                          >
+                            <option value="">— Seleccioná —</option>
+                            {displayHome && <option value={displayHome}>{displayHome}</option>}
+                            {displayAway && displayAway !== displayHome && <option value={displayAway}>{displayAway}</option>}
+                          </select>
+                        </div>
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500 w-16 shrink-0">Resultado 90':</span>
-                        <input
-                          type="number" min="0" max="20"
-                          value={displayHomeGoals}
-                          onChange={e => update('homeGoals', e.target.value)}
-                          placeholder="?"
-                          className="w-12 text-center border border-amber-300 rounded px-1 py-0.5 text-sm font-bold focus:outline-none"
-                        />
-                        <span className="text-gray-400 text-xs">-</span>
-                        <input
-                          type="number" min="0" max="20"
-                          value={displayAwayGoals}
-                          onChange={e => update('awayGoals', e.target.value)}
-                          placeholder="?"
-                          className="w-12 text-center border border-amber-300 rounded px-1 py-0.5 text-sm font-bold focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500 w-16 shrink-0">Quién pasa:</span>
-                        <select
-                          value={displayWinner}
-                          onChange={e => update('winner', e.target.value)}
-                          className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
-                        >
-                          <option value="">— Seleccioná —</option>
-                          {displayHome && <option value={displayHome}>{displayHome}</option>}
-                          {displayAway && <option value={displayAway}>{displayAway}</option>}
-                        </select>
-                      </div>
-
-                      <button
-                        onClick={() => saveKnockMatch(matchId)}
-                        className="w-full bg-amber-500 hover:bg-amber-600 text-white text-sm py-1.5 rounded-lg transition-colors font-medium"
-                      >
-                        {kd ? '✓ Actualizar llave' : 'Guardar llave'}
-                      </button>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -323,12 +526,21 @@ export default function Admin() {
             <button
               onClick={saveScoring}
               className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                savedScoring ? 'bg-green-500 text-white' : 'bg-amber-500 hover:bg-amber-600 text-white'
+                saveState === 'ok'    ? 'bg-green-500 text-white' :
+                saveState === 'error' ? 'bg-red-500 text-white'   :
+                'bg-amber-500 hover:bg-amber-600 text-white'
               }`}
             >
-              {savedScoring ? '✓ Guardado' : 'Guardar configuración'}
+              {saveState === 'ok'    ? '✓ Guardado'         :
+               saveState === 'error' ? '✗ Error al guardar' :
+               'Guardar configuración'}
             </button>
           </div>
+          {saveErrMsg && (
+            <p className="mt-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 break-all">
+              Error Supabase: {saveErrMsg}
+            </p>
+          )}
         </div>
       )}
     </div>

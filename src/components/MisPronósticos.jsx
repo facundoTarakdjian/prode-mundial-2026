@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { GROUP_MATCHES, GROUPS, ALL_COUNTRIES, KNOCKOUT_ROUNDS } from '../constants/fixture'
+import { GROUP_MATCHES, GROUPS, ALL_COUNTRIES, KNOCKOUT_MATCH_DATES, R32_FIXTURE, R16_FIXTURE, QF_FIXTURE, SF_FIXTURE, F_FIXTURE } from '../constants/fixture'
 import Bandera from './Bandera'
+
+const ALL_KO_FIXTURES = { R32: R32_FIXTURE, R16: R16_FIXTURE, QF: QF_FIXTURE, SF: SF_FIXTURE, F: F_FIXTURE }
 
 // Primer partido del Mundial — bloqueo global de clasificados y campeón
 const MUNDIAL_START = '2026-06-11T16:00:00-03:00'
@@ -13,6 +15,12 @@ function isMatchLocked(dateIso) {
 
 function isMundialStarted() {
   return new Date() >= new Date(MUNDIAL_START)
+}
+
+function isKnockoutMatchLocked(matchId) {
+  const dateUtc = KNOCKOUT_MATCH_DATES[matchId]
+  if (!dateUtc) return false
+  return new Date() >= new Date(dateUtc)
 }
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
@@ -64,7 +72,7 @@ export default function MisPronósticos() {
     updateGroupPred, deleteGroupPred,
     saveQualifiersBulk,
     updateFinal,
-    updateKnockoutPred,
+    updateKnockoutPred, deleteKnockoutPred,
     knockoutData,
   } = useApp()
 
@@ -85,8 +93,15 @@ export default function MisPronósticos() {
   const [champSaved,  setChampSaved]  = useState(false)
 
   // ── Estado local eliminatorias ────────────────────────
-  const [knockInputs, setKnockInputs] = useState({})
-  const [savedKnock,  setSavedKnock]  = useState({})
+  const [knockInputs,        setKnockInputs]        = useState({})
+  const [savedKnock,         setSavedKnock]         = useState({})
+  const [activeKnockoutRound, setActiveKnockoutRound] = useState(() => {
+    const now = new Date()
+    for (const rid of ['R32', 'R16', 'QF', 'SF', 'F']) {
+      if (ALL_KO_FIXTURES[rid].some(f => new Date(f.date) > now)) return rid
+    }
+    return 'F'
+  })
 
   // ── Errores de validación ─────────────────────────────
   const [groupErrors, setGroupErrors] = useState({}) // { [matchId]: string }
@@ -182,6 +197,11 @@ export default function MisPronósticos() {
   const handleKnockInput = (matchId, field, val) => {
     setKnockInputs(prev => ({ ...prev, [matchId]: { ...(prev[matchId] || {}), [field]: val } }))
     if (knockErrors[matchId]) setKnockErrors(prev => { const n = { ...prev }; delete n[matchId]; return n })
+  }
+
+  const handleDeleteKnock = async (matchId) => {
+    await deleteKnockoutPred(session, matchId)
+    setKnockInputs(prev => { const n = { ...prev }; delete n[matchId]; return n })
   }
 
   const handleSaveKnock = async (matchId) => {
@@ -534,66 +554,118 @@ export default function MisPronósticos() {
 
       {/* ── SECCIÓN ELIMINACIÓN DIRECTA ── */}
       {activeSection === 'knockout' && (
-        <div className="space-y-4">
-          {KNOCKOUT_ROUNDS.map(round => {
-            const roundMatches = Object.entries(knockoutData)
-              .filter(([id]) => id.startsWith(round.id + '_') && !id.includes('winner') && !id.includes('runner'))
-            if (roundMatches.length === 0) {
-              return (
-                <div key={round.id} className="bg-white rounded-2xl shadow p-4 text-center text-gray-400 text-sm">
-                  <span className="font-semibold">{round.label}</span> — los cruces aún no están definidos
+        <div className="space-y-3">
+          {/* Sub-nav de rondas */}
+          <div className="bg-white rounded-2xl shadow p-1 flex gap-1">
+            {[
+              { id: 'R32', label: '16avos' },
+              { id: 'R16', label: '8avos'  },
+              { id: 'QF',  label: 'Cuartos' },
+              { id: 'SF',  label: 'Semis'  },
+              { id: 'F',   label: 'Final'  },
+            ].map(r => (
+              <button
+                key={r.id}
+                onClick={() => setActiveKnockoutRound(r.id)}
+                className={`flex-1 py-2 px-1 rounded-xl text-xs font-medium transition-colors ${
+                  activeKnockoutRound === r.id
+                    ? 'bg-green-600 text-white shadow'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Partidos de la ronda activa */}
+          <div className="space-y-3">
+            {ALL_KO_FIXTURES[activeKnockoutRound].map((fixture, i) => {
+              const matchId = fixture.id
+              const kd      = knockoutData[matchId]
+              // Equipos: knockoutData tiene prioridad (admin puede corregir); fallback al fixture (R32 tiene equipos, R16+ no)
+              const realHome = kd?.home ?? fixture.home ?? ''
+              const realAway = kd?.away ?? fixture.away ?? ''
+              const homeIsTBD = !realHome || realHome.startsWith('Por definir')
+              const awayIsTBD = !realAway || realAway.startsWith('Por definir')
+              const bothDefined = !homeIsTBD && !awayIsTBD
+
+              const inp  = knockInputs[matchId] || {}
+              const cur  = knockPreds[matchId]  || {}
+              const displayHG = inp.homeGoals !== undefined ? inp.homeGoals : (cur.homeGoals ?? '')
+              const displayAG = inp.awayGoals !== undefined ? inp.awayGoals : (cur.awayGoals ?? '')
+              const displayW  = inp.winner    !== undefined ? inp.winner    : (cur.winner    ?? '')
+              const isLocalDirty = !!knockInputs[matchId]
+              const justSaved    = !!savedKnock[matchId]
+              const locked = isKnockoutMatchLocked(matchId)
+
+              const dateObj = new Date(fixture.date)
+              const fechaStr = `${formatFecha(dateObj)}${fixture.stadium ? ` · ${fixture.stadium}, ${fixture.city}` : fixture.city ? ` · ${fixture.city}` : ''}`
+
+              const TeamCol = ({ name, isTBD }) => (
+                <div className="flex flex-col items-center text-center gap-1.5">
+                  {isTBD
+                    ? <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-lg">❓</div>
+                    : <Bandera pais={name} />
+                  }
+                  <span className={`text-sm font-semibold leading-tight ${isTBD ? 'text-gray-400 italic' : 'text-gray-800'}`}>
+                    {isTBD ? 'Por definir' : name}
+                  </span>
                 </div>
               )
-            }
-            return (
-              <div key={round.id} className="bg-white rounded-2xl shadow p-4">
-                <h3 className="font-bold text-gray-700 mb-3">{round.label}</h3>
-                <div className="space-y-3">
-                  {roundMatches.map(([matchId, matchData]) => {
-                    const inp  = knockInputs[matchId] || {}
-                    const cur  = knockPreds[matchId]  || {}
-                    const displayHG = inp.homeGoals !== undefined ? inp.homeGoals : (cur.homeGoals ?? '')
-                    const displayAG = inp.awayGoals !== undefined ? inp.awayGoals : (cur.awayGoals ?? '')
-                    const displayW  = inp.winner    !== undefined ? inp.winner    : (cur.winner    ?? '')
-                    const isLocalDirty = !!knockInputs[matchId]
-                    const justSaved    = !!savedKnock[matchId]
-                    return (
-                      <div key={matchId} className="bg-gray-50 rounded-xl p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="flex-1 text-right text-sm font-medium">{matchData.home}</span>
-                          <input
-                            type="number" min="0" max="20"
-                            value={displayHG}
-                            onChange={e => handleKnockInput(matchId, 'homeGoals', e.target.value)}
-                            className="w-12 text-center border border-green-300 rounded px-1 py-0.5 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-green-400"
-                            placeholder="?"
-                          />
-                          <span className="text-gray-400 text-xs">-</span>
-                          <input
-                            type="number" min="0" max="20"
-                            value={displayAG}
-                            onChange={e => handleKnockInput(matchId, 'awayGoals', e.target.value)}
-                            className="w-12 text-center border border-green-300 rounded px-1 py-0.5 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-green-400"
-                            placeholder="?"
-                          />
-                          <span className="flex-1 text-sm font-medium">{matchData.away}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 shrink-0">¿Quién pasa?</span>
-                          <select
-                            value={displayW}
-                            onChange={e => handleKnockInput(matchId, 'winner', e.target.value)}
-                            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-green-400"
-                          >
-                            <option value="">— Seleccioná —</option>
-                            <option value={matchData.home}>{matchData.home}</option>
-                            <option value={matchData.away}>{matchData.away}</option>
-                          </select>
-                        </div>
+
+              return (
+                <div key={matchId} className={`rounded-xl p-3 shadow-sm border ${
+                  locked ? 'bg-gray-50 border-gray-100' : bothDefined ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-200'
+                }`}>
+                  {/* 3 columnas: local | score+fecha | visitante */}
+                  <div className="grid grid-cols-3 items-center gap-2">
+                    <TeamCol name={realHome} isTBD={homeIsTBD} />
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        <ScoreInput value={displayHG} onChange={v => handleKnockInput(matchId, 'homeGoals', v)} locked={locked || !bothDefined} />
+                        <span className="text-gray-400 font-bold text-lg self-center">-</span>
+                        <ScoreInput value={displayAG} onChange={v => handleKnockInput(matchId, 'awayGoals', v)} locked={locked || !bothDefined} />
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-gray-400">{fechaStr}</div>
+                        {locked && <div className="text-xs text-red-400 mt-0.5">🔒 bloqueado</div>}
+                      </div>
+                    </div>
+                    <TeamCol name={realAway} isTBD={awayIsTBD} />
+                  </div>
+
+                  {/* Quién pasa + guardar */}
+                  {locked ? (
+                    knockPreds[matchId] ? (
+                      <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-500 text-center">
+                        Tu pronóstico: {knockPreds[matchId].homeGoals ?? '?'} - {knockPreds[matchId].awayGoals ?? '?'}
+                        {knockPreds[matchId].winner && ` · pasa ${knockPreds[matchId].winner}`}
+                      </div>
+                    ) : null
+                  ) : !bothDefined ? (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-400 text-center italic">Esperando equipos confirmados</p>
+                    </div>
+                  ) : (
+                    <div className="mt-2 pt-2 border-t border-green-100 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 shrink-0">¿Quién pasa?</span>
+                        <select
+                          value={displayW}
+                          onChange={e => handleKnockInput(matchId, 'winner', e.target.value)}
+                          className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-green-400"
+                        >
+                          <option value="">— Seleccioná —</option>
+                          <option value={realHome}>{realHome}</option>
+                          <option value={realAway}>{realAway}</option>
+                        </select>
+                      </div>
+                      <div className="flex gap-1.5">
                         <button
                           onClick={() => handleSaveKnock(matchId)}
                           disabled={!isLocalDirty}
-                          className={`w-full py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                             justSaved
                               ? 'bg-green-100 text-green-700'
                               : isLocalDirty
@@ -605,16 +677,24 @@ export default function MisPronósticos() {
                         >
                           {justSaved ? '✓ Guardado' : isLocalDirty ? 'Guardar' : knockPreds[matchId] ? '✓ Guardado' : 'Guardar'}
                         </button>
-                        {knockErrors[matchId] && (
-                          <p className="text-xs text-red-500 text-center">{knockErrors[matchId]}</p>
+                        {knockPreds[matchId] && (
+                          <button
+                            onClick={() => handleDeleteKnock(matchId)}
+                            className="text-xs px-2.5 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 transition-colors"
+                          >
+                            Borrar
+                          </button>
                         )}
                       </div>
-                    )
-                  })}
+                      {knockErrors[matchId] && (
+                        <p className="text-xs text-red-500 text-center">{knockErrors[matchId]}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

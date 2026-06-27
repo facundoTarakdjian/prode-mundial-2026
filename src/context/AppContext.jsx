@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import { DEFAULT_SCORING } from '../constants/storage'
-import { GROUP_MATCHES } from '../constants/fixture'
+import { GROUP_MATCHES, BRACKET_PROPAGATION } from '../constants/fixture'
 
 const AppContext = createContext(null)
 
@@ -74,6 +74,9 @@ export function AppProvider({ children }) {
   // Ref for stable callbacks that need latest predictions
   const predictionsRef = useRef({})
   useEffect(() => { predictionsRef.current = predictions }, [predictions])
+
+  const knockoutDataRef = useRef({})
+  useEffect(() => { knockoutDataRef.current = knockoutData }, [knockoutData])
 
   // ── Data loaders ───────────────────────────────────────
   const loadPredictions = useCallback(async () => {
@@ -260,6 +263,20 @@ export function AppProvider({ children }) {
     await addLog(username, `Borró pronóstico ${m ? `${m.home} vs ${m.away}` : matchId}`)
   }, [addLog])
 
+  // ── Borrar pronóstico de eliminatoria ─────────────────
+  const deleteKnockoutPred = useCallback(async (username, matchId) => {
+    await supabase.from('eliminatorias_pronosticos').delete()
+      .eq('username', username).eq('match_id', matchId)
+    setPredictions(prev => {
+      const user = prev[username]
+      if (!user) return prev
+      const knockout = { ...user.knockout }
+      delete knockout[matchId]
+      return { ...prev, [username]: { ...user, knockout } }
+    })
+    await addLog(username, `Borró pronóstico eliminatoria ${matchId}`)
+  }, [addLog])
+
   // ── Guardar clasificados en bulk ────────────────────────
   const saveQualifiersBulk = useCallback(async (username, newQuals) => {
     const savedSet = new Set(predictionsRef.current[username]?.qualifiers || [])
@@ -332,7 +349,7 @@ export function AppProvider({ children }) {
       setKnockoutData(prev => ({ ...prev, [matchId]: data }))
       return
     }
-    await supabase.from('eliminatorias_reales').upsert({
+    const { error } = await supabase.from('eliminatorias_reales').upsert({
       match_id:   matchId,
       home:       data.home  || null,
       away:       data.away  || null,
@@ -340,21 +357,99 @@ export function AppProvider({ children }) {
       away_goals: data.awayGoals != null ? parseInt(data.awayGoals) : null,
       winner:     data.winner || null,
     }, { onConflict: 'match_id' })
+    if (error) throw error
 
     setKnockoutData(prev => {
       const next = { ...prev, [matchId]: data }
       if (matchId === 'F_1' && data.winner) {
-        next['F_winner']   = data.winner
+        next['F_winner']    = data.winner
         next['F_runner_up'] = data.winner === data.home ? data.away : data.home
+      }
+      const prog = BRACKET_PROPAGATION[matchId]
+      if (prog && data.winner) {
+        const curNext = next[prog.next] || {}
+        next[prog.next] = {
+          ...curNext,
+          home: prog.slot === 'home' ? data.winner : (curNext.home || ''),
+          away: prog.slot === 'away' ? data.winner : (curNext.away || ''),
+        }
       }
       return next
     })
     await addLog(username, `Actualizó llave ${matchId} en eliminación directa`)
+
+    // Persistir equipo ganador en la siguiente llave del bracket
+    const prog = BRACKET_PROPAGATION[matchId]
+    if (prog && data.winner) {
+      // Leer estado actual via ref para obtener el otro equipo
+      const curNext = knockoutDataRef.current[prog.next] || {}
+      await supabase.from('eliminatorias_reales').upsert({
+        match_id:   prog.next,
+        home:       prog.slot === 'home' ? data.winner : (curNext.home || null),
+        away:       prog.slot === 'away' ? data.winner : (curNext.away || null),
+        home_goals: curNext.homeGoals != null ? parseInt(curNext.homeGoals) : null,
+        away_goals: curNext.awayGoals != null ? parseInt(curNext.awayGoals) : null,
+        winner:     curNext.winner || null,
+      }, { onConflict: 'match_id' })
+    }
+  }, [addLog])
+
+  // ── Borrar llave con propagación en cascada ────────────
+  const deleteKnockoutMatch = useCallback(async (matchId, username) => {
+    const snap = knockoutDataRef.current
+
+    const dbUpdates    = [] // { matchId, fields }
+    const statePatches = [] // { matchId, patch }
+
+    // Limpiar resultado/ganador de la llave origen (mantiene los equipos)
+    dbUpdates.push({ matchId, fields: { home_goals: null, away_goals: null, winner: null } })
+    statePatches.push({ matchId, patch: { homeGoals: null, awayGoals: null, winner: '' } })
+
+    // Cascada hacia adelante si había un ganador
+    const srcWinner = (snap[matchId] || {}).winner
+    if (srcWinner) {
+      let cur = matchId
+      while (true) {
+        const prog = BRACKET_PROPAGATION[cur]
+        if (!prog) break
+        const nextSnap   = snap[prog.next] || {}
+        const teamInSlot = nextSnap[prog.slot] || ''
+        const nextWinner = nextSnap.winner || ''
+        const slotIsWinner = !!nextWinner && nextWinner === teamInSlot
+
+        const dbF    = { [prog.slot]: null }
+        const stateF = { [prog.slot]: '' }
+        if (slotIsWinner) {
+          dbF.home_goals = null; dbF.away_goals = null; dbF.winner = null
+          stateF.homeGoals = null; stateF.awayGoals = null; stateF.winner = ''
+        }
+        dbUpdates.push({ matchId: prog.next, fields: dbF })
+        statePatches.push({ matchId: prog.next, patch: stateF })
+
+        if (!slotIsWinner) break
+        cur = prog.next
+      }
+    }
+
+    for (const { matchId: mId, fields } of dbUpdates) {
+      const { error } = await supabase.from('eliminatorias_reales').update(fields).eq('match_id', mId)
+      if (error) throw error
+    }
+
+    setKnockoutData(prev => {
+      const next = { ...prev }
+      for (const { matchId: mId, patch } of statePatches) {
+        next[mId] = { ...(next[mId] || {}), ...patch }
+      }
+      return next
+    })
+
+    await addLog(username, `Borró resultado de llave ${matchId} en eliminación directa`)
   }, [addLog])
 
   // ── Puntuación ─────────────────────────────────────────
   const updateScoring = useCallback(async (newScoring, username) => {
-    await supabase.from('configuracion_puntos').upsert({
+    const { error } = await supabase.from('configuracion_puntos').upsert({
       id:              1,
       exact_result:    newScoring.exactResult,
       group_exact:     newScoring.groupExact,
@@ -364,6 +459,7 @@ export function AppProvider({ children }) {
       knockout_winner: newScoring.knockoutWinner,
       knockout_result: newScoring.knockoutResult,
     }, { onConflict: 'id' })
+    if (error) throw error
     setScoring(newScoring)
     await addLog(username, 'Modificó la configuración de puntos')
   }, [addLog])
@@ -418,11 +514,11 @@ export function AppProvider({ children }) {
     predictions, getPrediction,
     updateGroupPred, togglePredQualifier,
     updateChampionPred, updateSubchampionPred,
-    updateKnockoutPred,
+    updateKnockoutPred, deleteKnockoutPred,
     deleteGroupPred, saveQualifiersBulk, updateFinal,
     realResults, setRealResult, deleteRealResult,
     realQualifiers, setRealQualifiersData,
-    knockoutData, setKnockoutMatch,
+    knockoutData, setKnockoutMatch, deleteKnockoutMatch,
     scoring, updateScoring,
     logs, addLog,
     calcPoints,
