@@ -356,7 +356,7 @@ export default function Ranking() {
                             </div>
                           </div>
                           {/* Pronósticos de jugadores */}
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
                             {ALL_USERNAMES.map(username => {
                               const pred = predictions[username]?.knockout?.[matchId]
                               const ptsW = hasResult && pred?.winner === matchData.winner ? scoring.knockoutWinner : 0
@@ -376,8 +376,8 @@ export default function Ranking() {
                                     hit ? 'bg-green-100' : miss ? 'bg-red-50' : 'bg-white border border-gray-100'
                                   }`}
                                 >
-                                  <span className="font-semibold text-gray-700">{username}</span>
-                                  <span className={`font-bold ${hit ? 'text-green-700' : miss ? 'text-red-400' : 'text-gray-400'}`}>
+                                  <span className="font-semibold text-gray-700 w-2/5 truncate">{username}</span>
+                                  <span className={`font-bold text-right ${hit ? 'text-green-700' : miss ? 'text-red-400' : 'text-gray-400'}`}>
                                     {pred
                                       ? `${pred.homeGoals ?? '?'}-${pred.awayGoals ?? '?'}${pred.winner ? ` · ${pred.winner}` : ''}`
                                       : '—'
