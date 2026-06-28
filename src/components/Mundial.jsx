@@ -1,12 +1,8 @@
+import { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { GROUPS, GROUP_MATCHES, KNOCKOUT_ROUNDS } from '../constants/fixture'
+import { GROUPS, GROUP_MATCHES } from '../constants/fixture'
 import Bandera from './Bandera'
-
-const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
-
-function formatFechaCorta(d) {
-  return `${DIAS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1} · ${d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}hs`
-}
+import Bracket from './Bracket'
 
 function buildGroupStandings(teams, matches, realResults) {
   const table = {}
@@ -31,28 +27,32 @@ function buildGroupStandings(teams, matches, realResults) {
 
 export default function Mundial() {
   const { realResults, knockoutData } = useApp()
-
-  const sortedGroupMatches = [...GROUP_MATCHES].sort(
-    (a, b) => new Date(a.date + '-03:00') - new Date(b.date + '-03:00')
-  )
-
-  const knockoutMatches = KNOCKOUT_ROUNDS.flatMap(round => {
-    return Object.entries(knockoutData)
-      .filter(([id, data]) =>
-        id.startsWith(round.id + '_') &&
-        !id.includes('winner') &&
-        !id.includes('runner') &&
-        data.home
-      )
-      .map(([id, data]) => ({ id, round: round.label, ...data }))
-  })
+  const [activeTab, setActiveTab] = useState('bracket')
 
   return (
     <div className="space-y-4">
-      {/* ── Tablas de posiciones por grupo ── */}
-      {Object.entries(GROUPS).map(([g, teams]) => {
-        const matches    = GROUP_MATCHES.filter(m => m.group === g)
-        const standings  = buildGroupStandings(teams, matches, realResults)
+      {/* ── Nav tabs ── */}
+      <div className="bg-white rounded-2xl shadow p-1 flex gap-1">
+        {[
+          { id: 'groups',  label: '🏆 Grupos'  },
+          { id: 'bracket', label: '⚡ Llave'   },
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`flex-1 py-2 px-2 rounded-xl text-sm font-medium transition-colors ${
+              activeTab === t.id ? 'bg-green-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── GRUPOS ── */}
+      {activeTab === 'groups' && Object.entries(GROUPS).map(([g, teams]) => {
+        const matches   = GROUP_MATCHES.filter(m => m.group === g)
+        const standings = buildGroupStandings(teams, matches, realResults)
         return (
           <div key={g} className="bg-white rounded-2xl shadow p-4">
             <div className="flex items-center gap-2 mb-3">
@@ -77,10 +77,7 @@ export default function Mundial() {
                 </thead>
                 <tbody>
                   {standings.map((row, i) => (
-                    <tr
-                      key={row.team}
-                      className={`border-t border-gray-100 ${i < 2 ? 'bg-green-50/50' : ''}`}
-                    >
+                    <tr key={row.team} className={`border-t border-gray-100 ${i < 2 ? 'bg-green-50/50' : ''}`}>
                       <td className="py-2 px-2">
                         <div className="flex items-center gap-1.5">
                           <Bandera pais={row.team} />
@@ -106,93 +103,13 @@ export default function Mundial() {
         )
       })}
 
-      {/* ── Eliminación directa ── */}
-      {knockoutMatches.length > 0 && (
-        <div className="bg-white rounded-2xl shadow p-4">
-          <h2 className="text-base font-bold text-gray-800 mb-4">⚡ Eliminación Directa</h2>
-          <div className="space-y-2">
-            {knockoutMatches.map(m => (
-              <div key={m.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                <div className="text-xs text-gray-400 text-center mb-2 font-medium">{m.round}</div>
-                <div className="grid grid-cols-3 items-center gap-2">
-                  <div className="flex flex-col items-center text-center gap-1">
-                    <Bandera pais={m.home} />
-                    <span className="text-sm font-semibold text-gray-800">{m.home}</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-1">
-                    {m.homeGoals != null ? (
-                      <>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xl font-bold text-gray-800">{m.homeGoals}</span>
-                          <span className="text-gray-400 font-bold">-</span>
-                          <span className="text-xl font-bold text-gray-800">{m.awayGoals}</span>
-                        </div>
-                        {m.winner && (
-                          <span className="text-xs text-green-700 font-semibold">Pasa: {m.winner}</span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-gray-300 font-bold text-lg">vs</span>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-center text-center gap-1">
-                    <Bandera pais={m.away} />
-                    <span className="text-sm font-semibold text-gray-800">{m.away}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* ── LLAVE ── */}
+      {activeTab === 'bracket' && (
+        <div className="bg-white rounded-2xl shadow p-3">
+          <Bracket knockoutData={knockoutData} />
         </div>
       )}
 
-      {/* ── Fixture de grupos ── */}
-      <div className="bg-white rounded-2xl shadow p-4">
-        <h2 className="text-base font-bold text-gray-800 mb-4">📅 Fixture — Fase de Grupos</h2>
-        <div className="space-y-2">
-          {sortedGroupMatches.map(m => {
-            const real = realResults[m.id]
-            const d    = new Date(m.date + '-03:00')
-            return (
-              <div
-                key={m.id}
-                className={`rounded-xl border p-3 ${real ? 'bg-gray-50 border-gray-100' : 'bg-green-50 border-green-100'}`}
-              >
-                <div className="grid grid-cols-3 items-center gap-2">
-                  {/* Local */}
-                  <div className="flex flex-col items-center text-center gap-1">
-                    <Bandera pais={m.home} />
-                    <span className="text-sm font-semibold text-gray-800">{m.home}</span>
-                  </div>
-                  {/* Centro */}
-                  <div className="flex flex-col items-center gap-1">
-                    {real != null ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xl font-bold text-gray-800">{real.home}</span>
-                        <span className="text-gray-400 font-bold">-</span>
-                        <span className="text-xl font-bold text-gray-800">{real.away}</span>
-                      </div>
-                    ) : (
-                      <span className="text-gray-300 font-bold text-lg">vs</span>
-                    )}
-                    <div className="text-center">
-                      <span className="bg-green-600 text-white text-xs font-bold px-1.5 py-0.5 rounded mr-1">
-                        {m.group}
-                      </span>
-                      <span className="text-xs text-gray-400">{formatFechaCorta(d)}</span>
-                    </div>
-                  </div>
-                  {/* Visitante */}
-                  <div className="flex flex-col items-center text-center gap-1">
-                    <Bandera pais={m.away} />
-                    <span className="text-sm font-semibold text-gray-800">{m.away}</span>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
     </div>
   )
 }

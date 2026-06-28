@@ -76,7 +76,7 @@ export default function MisPronósticos() {
     knockoutData,
   } = useApp()
 
-  const [activeSection, setActiveSection] = useState('groups')
+  const [activeSection, setActiveSection] = useState('knockout')
 
   // ── Estado local grupos ───────────────────────────────
   const [groupInputs,  setGroupInputs]  = useState({}) // { [matchId]: { home, away } }

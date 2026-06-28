@@ -19,7 +19,7 @@ function isKnockoutMatchLocked(matchId) {
 
 export default function Ranking() {
   const { predictions, realResults, realQualifiers, knockoutData, scoring, calcPoints } = useApp()
-  const [activeSection, setActiveSection] = useState('groups')
+  const [activeSection, setActiveSection] = useState('knockout')
 
   const standings = ALL_USERNAMES
     .map(u => ({ username: u, points: calcPoints(u) }))

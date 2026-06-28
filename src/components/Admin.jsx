@@ -313,56 +313,63 @@ export default function Admin() {
                             <span className="font-medium">Llave {i + 1} · {fixture.city}</span>
                             <span>{fechaLabel}</span>
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          {/* Mobile: flex-col / Desktop: flex-row */}
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-1.5">
                             <select
                               value={selectHomeVal}
                               onChange={e => update('home', e.target.value || fixture.home)}
-                              className="flex-1 min-w-0 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                              className="w-full sm:flex-1 sm:min-w-0 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
                             >
                               <option value="">— Local —</option>
                               {ALL_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
-                            <input
-                              type="number" min="0" max="20"
-                              value={displayHomeGoals}
-                              onChange={e => update('homeGoals', e.target.value)}
-                              placeholder="?"
-                              className="w-10 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
-                            />
-                            <span className="text-gray-400 text-xs shrink-0">-</span>
-                            <input
-                              type="number" min="0" max="20"
-                              value={displayAwayGoals}
-                              onChange={e => update('awayGoals', e.target.value)}
-                              placeholder="?"
-                              className="w-10 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
-                            />
+                            {/* Score: fila centrada en mobile, inline en desktop */}
+                            <div className="flex items-center justify-center gap-1.5 sm:contents">
+                              <input
+                                type="number" min="0" max="20"
+                                value={displayHomeGoals}
+                                onChange={e => update('homeGoals', e.target.value)}
+                                placeholder="?"
+                                className="w-12 sm:w-10 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                              />
+                              <span className="text-gray-400 text-xs shrink-0">-</span>
+                              <input
+                                type="number" min="0" max="20"
+                                value={displayAwayGoals}
+                                onChange={e => update('awayGoals', e.target.value)}
+                                placeholder="?"
+                                className="w-12 sm:w-10 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                              />
+                            </div>
                             <select
                               value={selectAwayVal}
                               onChange={e => update('away', e.target.value || fixture.away)}
-                              className="flex-1 min-w-0 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                              className="w-full sm:flex-1 sm:min-w-0 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
                             >
                               <option value="">— Visitante —</option>
                               {ALL_COUNTRIES.filter(c => c !== selectHomeVal).map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
-                            <button
-                              onClick={() => saveKnockMatch(matchId)}
-                              className={`shrink-0 text-xs px-2.5 py-1 rounded-lg transition-colors font-medium text-white ${
-                                saveKS === 'ok'    ? 'bg-green-500' :
-                                saveKS === 'error' ? 'bg-red-500'   :
-                                'bg-amber-500 hover:bg-amber-600'
-                              }`}
-                            >
-                              {saveKS === 'ok' ? '✓' : saveKS === 'error' ? '✗' : '✓ Guardar'}
-                            </button>
-                            <button
-                              onClick={() => handleDeleteKnock(matchId)}
-                              className={`shrink-0 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-                                kd ? 'bg-red-100 hover:bg-red-200 text-red-600' : 'bg-gray-100 text-gray-300 cursor-default'
-                              }`}
-                            >
-                              Borrar
-                            </button>
+                            {/* Botones: 50/50 en mobile, shrink-0 en desktop */}
+                            <div className="flex gap-1.5 sm:contents">
+                              <button
+                                onClick={() => saveKnockMatch(matchId)}
+                                className={`flex-1 sm:flex-none sm:shrink-0 text-xs px-2.5 py-1.5 sm:py-1 rounded-lg transition-colors font-medium text-white ${
+                                  saveKS === 'ok'    ? 'bg-green-500' :
+                                  saveKS === 'error' ? 'bg-red-500'   :
+                                  'bg-amber-500 hover:bg-amber-600'
+                                }`}
+                              >
+                                {saveKS === 'ok' ? '✓ Guardado' : saveKS === 'error' ? '✗ Error' : '✓ Guardar'}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteKnock(matchId)}
+                                className={`flex-1 sm:flex-none sm:shrink-0 px-2 py-1.5 sm:py-1 rounded-lg text-xs font-medium transition-colors ${
+                                  kd ? 'bg-red-100 hover:bg-red-200 text-red-600' : 'bg-gray-100 text-gray-300 cursor-default'
+                                }`}
+                              >
+                                Borrar
+                              </button>
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-500 shrink-0">¿Quién pasa?</span>
@@ -416,56 +423,60 @@ export default function Admin() {
                         {r16fix && (
                           <div className="text-xs text-gray-400 font-medium">Llave {i + 1} · {r16fix.city}</div>
                         )}
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-1.5">
                           <select
                             value={displayHome}
                             onChange={e => update('home', e.target.value)}
-                            className="flex-1 min-w-0 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                            className="w-full sm:flex-1 sm:min-w-0 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
                           >
                             <option value="">— Local —</option>
                             {ALL_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
-                          <input
-                            type="number" min="0" max="20"
-                            value={displayHomeGoals}
-                            onChange={e => update('homeGoals', e.target.value)}
-                            placeholder="?"
-                            className="w-10 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
-                          />
-                          <span className="text-gray-400 text-xs shrink-0">-</span>
-                          <input
-                            type="number" min="0" max="20"
-                            value={displayAwayGoals}
-                            onChange={e => update('awayGoals', e.target.value)}
-                            placeholder="?"
-                            className="w-10 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
-                          />
+                          <div className="flex items-center justify-center gap-1.5 sm:contents">
+                            <input
+                              type="number" min="0" max="20"
+                              value={displayHomeGoals}
+                              onChange={e => update('homeGoals', e.target.value)}
+                              placeholder="?"
+                              className="w-12 sm:w-10 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                            />
+                            <span className="text-gray-400 text-xs shrink-0">-</span>
+                            <input
+                              type="number" min="0" max="20"
+                              value={displayAwayGoals}
+                              onChange={e => update('awayGoals', e.target.value)}
+                              placeholder="?"
+                              className="w-12 sm:w-10 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                            />
+                          </div>
                           <select
                             value={displayAway}
                             onChange={e => update('away', e.target.value)}
-                            className="flex-1 min-w-0 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                            className="w-full sm:flex-1 sm:min-w-0 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
                           >
                             <option value="">— Visitante —</option>
                             {ALL_COUNTRIES.filter(c => c !== displayHome).map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
-                          <button
-                            onClick={() => saveKnockMatch(matchId)}
-                            className={`shrink-0 text-xs px-2.5 py-1 rounded-lg transition-colors font-medium text-white ${
-                              saveKS === 'ok'    ? 'bg-green-500' :
-                              saveKS === 'error' ? 'bg-red-500'   :
-                              'bg-amber-500 hover:bg-amber-600'
-                            }`}
-                          >
-                            {saveKS === 'ok' ? '✓' : saveKS === 'error' ? '✗' : '✓ Guardar'}
-                          </button>
-                          <button
-                            onClick={() => handleDeleteKnock(matchId)}
-                            className={`shrink-0 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-                              kd ? 'bg-red-100 hover:bg-red-200 text-red-600' : 'bg-gray-100 text-gray-300 cursor-default'
-                            }`}
-                          >
-                            Borrar
-                          </button>
+                          <div className="flex gap-1.5 sm:contents">
+                            <button
+                              onClick={() => saveKnockMatch(matchId)}
+                              className={`flex-1 sm:flex-none sm:shrink-0 text-xs px-2.5 py-1.5 sm:py-1 rounded-lg transition-colors font-medium text-white ${
+                                saveKS === 'ok'    ? 'bg-green-500' :
+                                saveKS === 'error' ? 'bg-red-500'   :
+                                'bg-amber-500 hover:bg-amber-600'
+                              }`}
+                            >
+                              {saveKS === 'ok' ? '✓ Guardado' : saveKS === 'error' ? '✗ Error' : '✓ Guardar'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteKnock(matchId)}
+                              className={`flex-1 sm:flex-none sm:shrink-0 px-2 py-1.5 sm:py-1 rounded-lg text-xs font-medium transition-colors ${
+                                kd ? 'bg-red-100 hover:bg-red-200 text-red-600' : 'bg-gray-100 text-gray-300 cursor-default'
+                              }`}
+                            >
+                              Borrar
+                            </button>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-500 shrink-0">¿Quién pasa?</span>
