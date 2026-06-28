@@ -180,31 +180,33 @@ export const R32_FIXTURE = [
   { id: 'R32_16', date: '2026-07-04T01:30:00Z', home: 'Colombia',       away: 'Ghana',                stadium: 'Arrowhead Stadium',     city: 'Kansas City' },
 ]
 
-// Fechas aproximadas de octavos (para bloqueo de pronósticos)
+// Fixture de octavos de final (M89–M96)
 export const R16_FIXTURE = [
-  { id: 'R16_1', date: '2026-07-05T19:00:00Z', stadium: 'Lincoln Financial Field', city: 'Philadelphia' },
-  { id: 'R16_2', date: '2026-07-05T23:00:00Z', stadium: 'NRG Stadium',             city: 'Houston' },
-  { id: 'R16_3', date: '2026-07-06T19:00:00Z', stadium: 'MetLife Stadium',         city: 'Nueva York/NJ' },
-  { id: 'R16_4', date: '2026-07-06T23:00:00Z', stadium: 'Estadio Azteca',          city: 'México DF' },
-  { id: 'R16_5', date: '2026-07-07T19:00:00Z', stadium: 'AT&T Stadium',            city: 'Dallas' },
-  { id: 'R16_6', date: '2026-07-07T23:00:00Z', stadium: 'Lumen Field',             city: 'Seattle' },
-  { id: 'R16_7', date: '2026-07-08T19:00:00Z', stadium: 'Mercedes-Benz Stadium',   city: 'Atlanta' },
-  { id: 'R16_8', date: '2026-07-08T23:00:00Z', stadium: 'BC Place',                city: 'Vancouver' },
+  { id: 'R16_1', date: '2026-07-04T22:00:00Z', stadium: 'Lincoln Financial Field', city: 'Philadelphia' }, // M89
+  { id: 'R16_2', date: '2026-07-05T02:00:00Z', stadium: 'NRG Stadium',             city: 'Houston' },       // M90
+  { id: 'R16_3', date: '2026-07-05T22:00:00Z', stadium: 'MetLife Stadium',         city: 'Nueva York/NJ' }, // M91
+  { id: 'R16_4', date: '2026-07-06T00:00:00Z', stadium: 'Estadio Azteca',          city: 'Ciudad de México' }, // M92
+  { id: 'R16_5', date: '2026-07-06T23:00:00Z', stadium: 'AT&T Stadium',            city: 'Dallas' },        // M93
+  { id: 'R16_6', date: '2026-07-07T04:00:00Z', stadium: 'Lumen Field',             city: 'Seattle' },       // M94
+  { id: 'R16_7', date: '2026-07-07T22:00:00Z', stadium: 'Mercedes-Benz Stadium',   city: 'Atlanta' },       // M95
+  { id: 'R16_8', date: '2026-07-08T04:00:00Z', stadium: 'BC Place',                city: 'Vancouver' },     // M96
 ]
 
-// Fechas aproximadas de cuartos, semis y final
+// Fixture de cuartos de final (M97–M100)
 export const QF_FIXTURE = [
-  { id: 'QF_1', date: '2026-07-11T19:00:00Z' },
-  { id: 'QF_2', date: '2026-07-11T23:00:00Z' },
-  { id: 'QF_3', date: '2026-07-12T19:00:00Z' },
-  { id: 'QF_4', date: '2026-07-12T23:00:00Z' },
+  { id: 'QF_1', date: '2026-07-09T22:00:00Z', stadium: 'Gillette Stadium',   city: 'Boston' },       // M97
+  { id: 'QF_2', date: '2026-07-11T01:00:00Z', stadium: 'SoFi Stadium',       city: 'Los Angeles' },  // M98
+  { id: 'QF_3', date: '2026-07-11T19:00:00Z', stadium: 'Hard Rock Stadium',  city: 'Miami' },        // M99
+  { id: 'QF_4', date: '2026-07-11T23:00:00Z', stadium: 'Arrowhead Stadium',  city: 'Kansas City' },  // M100
 ]
+// Fixture de semifinales (M101–M102)
 export const SF_FIXTURE = [
-  { id: 'SF_1', date: '2026-07-15T19:00:00Z' },
-  { id: 'SF_2', date: '2026-07-16T19:00:00Z' },
+  { id: 'SF_1', date: '2026-07-14T23:00:00Z', stadium: 'AT&T Stadium',          city: 'Dallas' },   // M101
+  { id: 'SF_2', date: '2026-07-15T22:00:00Z', stadium: 'Mercedes-Benz Stadium', city: 'Atlanta' },  // M102
 ]
+// Final (M104)
 export const F_FIXTURE = [
-  { id: 'F_1', date: '2026-07-19T19:00:00Z' },
+  { id: 'F_1', date: '2026-07-19T22:00:00Z', stadium: 'MetLife Stadium', city: 'Nueva York/NJ' }, // M104
 ]
 
 // Lookup rápido matchId → fecha UTC
@@ -213,41 +215,56 @@ export const KNOCKOUT_MATCH_DATES = Object.fromEntries(
     .map(m => [m.id, m.date])
 )
 
-// Propagación del cuadro: ganador de cada llave → posición en siguiente ronda
+// Propagación del cuadro oficial FIFA 2026
 // { matchId: { next: matchId, slot: 'home' | 'away' } }
 export const BRACKET_PROPAGATION = {
   // R32 → R16
-  'R32_1':  { next: 'R16_2', slot: 'home' },
-  'R32_2':  { next: 'R16_1', slot: 'home' },
-  'R32_3':  { next: 'R16_2', slot: 'away' },
-  'R32_4':  { next: 'R16_3', slot: 'home' },
-  'R32_5':  { next: 'R16_1', slot: 'away' },
-  'R32_6':  { next: 'R16_3', slot: 'away' },
-  'R32_7':  { next: 'R16_4', slot: 'home' },
-  'R32_8':  { next: 'R16_4', slot: 'away' },
-  'R32_9':  { next: 'R16_6', slot: 'home' },
-  'R32_10': { next: 'R16_6', slot: 'away' },
-  'R32_11': { next: 'R16_5', slot: 'home' },
-  'R32_12': { next: 'R16_5', slot: 'away' },
-  'R32_13': { next: 'R16_8', slot: 'home' },
-  'R32_14': { next: 'R16_7', slot: 'home' },
-  'R32_15': { next: 'R16_8', slot: 'away' },
-  'R32_16': { next: 'R16_7', slot: 'away' },
+  // M89 (R16_1, Philadelphia): Alemania/Paraguay vs Francia/Suecia
+  'R32_3':  { next: 'R16_1', slot: 'home' }, // M74 Alemania/Paraguay
+  'R32_6':  { next: 'R16_1', slot: 'away' }, // M77 Francia/Suecia
+  // M90 (R16_2, Houston): Sudáfrica/Canadá vs Países Bajos/Marruecos
+  'R32_1':  { next: 'R16_2', slot: 'home' }, // M73 Sudáfrica/Canadá
+  'R32_4':  { next: 'R16_2', slot: 'away' }, // M75 Países Bajos/Marruecos
+  // M91 (R16_3, MetLife): Brasil/Japón vs Costa de Marfil/Noruega
+  'R32_2':  { next: 'R16_3', slot: 'home' }, // M76 Brasil/Japón
+  'R32_5':  { next: 'R16_3', slot: 'away' }, // M78 Costa de Marfil/Noruega
+  // M92 (R16_4, Azteca): México/Ecuador vs Inglaterra/RD Congo
+  'R32_7':  { next: 'R16_4', slot: 'home' }, // M79 México/Ecuador
+  'R32_8':  { next: 'R16_4', slot: 'away' }, // M80 Inglaterra/RD Congo
+  // M93 (R16_5, Dallas): Portugal/Croacia vs España/Austria
+  'R32_12': { next: 'R16_5', slot: 'home' }, // M83 Portugal/Croacia
+  'R32_11': { next: 'R16_5', slot: 'away' }, // M84 España/Austria
+  // M94 (R16_6, Seattle): USA/Bosnia vs Bélgica/Senegal
+  'R32_10': { next: 'R16_6', slot: 'home' }, // M81 USA/Bosnia
+  'R32_9':  { next: 'R16_6', slot: 'away' }, // M82 Bélgica/Senegal
+  // M95 (R16_7, Atlanta): Argentina/Cabo Verde vs Australia/Egipto
+  'R32_15': { next: 'R16_7', slot: 'home' }, // M86 Argentina/Cabo Verde
+  'R32_14': { next: 'R16_7', slot: 'away' }, // M88 Australia/Egipto
+  // M96 (R16_8, Vancouver): Suiza/Argelia vs Colombia/Ghana
+  'R32_13': { next: 'R16_8', slot: 'home' }, // M85 Suiza/Argelia
+  'R32_16': { next: 'R16_8', slot: 'away' }, // M87 Colombia/Ghana
   // R16 → QF
+  // M97 (QF_1, Boston): R16_1 vs R16_2
   'R16_1': { next: 'QF_1', slot: 'home' },
   'R16_2': { next: 'QF_1', slot: 'away' },
-  'R16_3': { next: 'QF_2', slot: 'home' },
-  'R16_4': { next: 'QF_2', slot: 'away' },
-  'R16_5': { next: 'QF_3', slot: 'home' },
-  'R16_6': { next: 'QF_3', slot: 'away' },
+  // M98 (QF_2, Los Angeles): R16_5 vs R16_6
+  'R16_5': { next: 'QF_2', slot: 'home' },
+  'R16_6': { next: 'QF_2', slot: 'away' },
+  // M99 (QF_3, Miami): R16_3 vs R16_4
+  'R16_3': { next: 'QF_3', slot: 'home' },
+  'R16_4': { next: 'QF_3', slot: 'away' },
+  // M100 (QF_4, Kansas City): R16_7 vs R16_8
   'R16_7': { next: 'QF_4', slot: 'home' },
   'R16_8': { next: 'QF_4', slot: 'away' },
   // QF → SF
+  // M101 (SF_1, Dallas): QF_1 vs QF_2
   'QF_1': { next: 'SF_1', slot: 'home' },
   'QF_2': { next: 'SF_1', slot: 'away' },
+  // M102 (SF_2, Atlanta): QF_3 vs QF_4
   'QF_3': { next: 'SF_2', slot: 'home' },
   'QF_4': { next: 'SF_2', slot: 'away' },
   // SF → F
+  // M104 (Final, MetLife): SF_1 vs SF_2
   'SF_1': { next: 'F_1', slot: 'home' },
   'SF_2': { next: 'F_1', slot: 'away' },
 }
