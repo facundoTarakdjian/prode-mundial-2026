@@ -162,22 +162,22 @@ export const KNOCKOUT_ROUNDS = [
 // ── Fixture de 16avos (R32) ────────────────────────────────────────────────
 // Fechas en UTC (Argentina = UTC-3)
 export const R32_FIXTURE = [
-  { id: 'R32_1',  date: '2026-06-28T19:00:00Z', home: 'Sudáfrica',              away: 'Canadá',                      stadium: 'SoFi Stadium',             city: 'Los Angeles' },
-  { id: 'R32_2',  date: '2026-06-29T17:00:00Z', home: 'Brasil',                 away: 'Japón',                       stadium: 'NRG Stadium',              city: 'Houston' },
-  { id: 'R32_3',  date: '2026-06-29T20:30:00Z', home: 'Alemania',               away: 'Por definir (3° A/B/C/D/F)',  stadium: 'Gillette Stadium',         city: 'Boston' },
-  { id: 'R32_4',  date: '2026-06-30T01:00:00Z', home: 'Países Bajos',           away: 'Marruecos',                   stadium: 'Estadio BBVA',             city: 'Monterrey' },
-  { id: 'R32_5',  date: '2026-06-30T17:00:00Z', home: 'Costa de Marfil',        away: 'Noruega',                     stadium: 'AT&T Stadium',             city: 'Dallas' },
-  { id: 'R32_6',  date: '2026-06-30T21:00:00Z', home: 'Francia',                away: 'Por definir (3° C/D/F/G/H)',  stadium: 'MetLife Stadium',          city: 'Nueva York/NJ' },
-  { id: 'R32_7',  date: '2026-07-01T01:00:00Z', home: 'México',                 away: 'Por definir (3° C/E/F/H/I)',  stadium: 'Est. Ciudad de México',    city: 'México DF' },
-  { id: 'R32_8',  date: '2026-07-01T16:00:00Z', home: 'Por definir (1°L)',      away: 'Por definir (3° varios)',     stadium: 'Mercedes-Benz Stadium',    city: 'Atlanta' },
-  { id: 'R32_9',  date: '2026-07-01T20:00:00Z', home: 'Por definir (1°G)',      away: 'Por definir (3° varios)',     stadium: 'Lumen Field',              city: 'Seattle' },
-  { id: 'R32_10', date: '2026-07-02T00:00:00Z', home: 'Estados Unidos',         away: 'Bosnia y Herzegovina',        stadium: "Levi's Stadium",           city: 'San Francisco' },
-  { id: 'R32_11', date: '2026-07-02T19:00:00Z', home: 'Por definir (1°H)',      away: 'Por definir (2°J)',           stadium: 'Hard Rock Stadium',        city: 'Miami' },
-  { id: 'R32_12', date: '2026-07-02T23:00:00Z', home: 'Por definir (2°K)',      away: 'Por definir (2°L)',           stadium: 'BC Place',                 city: 'Vancouver' },
-  { id: 'R32_13', date: '2026-07-03T03:00:00Z', home: 'Suiza',                  away: 'Por definir (3° E/F/G/I/J)', stadium: 'Arrowhead Stadium',        city: 'Kansas City' },
-  { id: 'R32_14', date: '2026-07-03T18:00:00Z', home: 'Australia',              away: 'Por definir (2°G)',           stadium: 'AT&T Stadium',             city: 'Dallas' },
-  { id: 'R32_15', date: '2026-07-03T22:00:00Z', home: 'Argentina',              away: 'Por definir (2°H)',           stadium: 'Hard Rock Stadium',        city: 'Miami' },
-  { id: 'R32_16', date: '2026-07-04T01:30:00Z', home: 'Por definir (1°K)',      away: 'Por definir (3° D/E/I/J/L)', stadium: 'Arrowhead Stadium',        city: 'Kansas City' },
+  { id: 'R32_1',  date: '2026-06-28T19:00:00Z', home: 'Sudáfrica',      away: 'Canadá',               stadium: 'SoFi Stadium',          city: 'Los Angeles' },
+  { id: 'R32_2',  date: '2026-06-29T17:00:00Z', home: 'Brasil',         away: 'Japón',                stadium: 'NRG Stadium',           city: 'Houston' },
+  { id: 'R32_3',  date: '2026-06-29T20:30:00Z', home: 'Alemania',       away: 'Paraguay',             stadium: 'Gillette Stadium',      city: 'Boston' },
+  { id: 'R32_4',  date: '2026-06-30T01:00:00Z', home: 'Países Bajos',   away: 'Marruecos',            stadium: 'Estadio BBVA',          city: 'Monterrey' },
+  { id: 'R32_5',  date: '2026-06-30T17:00:00Z', home: 'Costa de Marfil',away: 'Noruega',              stadium: 'AT&T Stadium',          city: 'Dallas' },
+  { id: 'R32_6',  date: '2026-06-30T21:00:00Z', home: 'Francia',        away: 'Suecia',               stadium: 'MetLife Stadium',       city: 'Nueva York/NJ' },
+  { id: 'R32_7',  date: '2026-07-01T01:00:00Z', home: 'México',         away: 'Ecuador',              stadium: 'Estadio Azteca',        city: 'Ciudad de México' },
+  { id: 'R32_8',  date: '2026-07-01T16:00:00Z', home: 'Inglaterra',     away: 'RD Congo',             stadium: 'Mercedes-Benz Stadium', city: 'Atlanta' },
+  { id: 'R32_9',  date: '2026-07-01T20:00:00Z', home: 'Bélgica',        away: 'Senegal',              stadium: 'Lumen Field',           city: 'Seattle' },
+  { id: 'R32_10', date: '2026-07-02T00:00:00Z', home: 'USA',            away: 'Bosnia-Herzegovina',   stadium: "Levi's Stadium",        city: 'San Francisco' },
+  { id: 'R32_11', date: '2026-07-02T19:00:00Z', home: 'España',         away: 'Austria',              stadium: 'SoFi Stadium',          city: 'Los Angeles' },
+  { id: 'R32_12', date: '2026-07-02T23:00:00Z', home: 'Portugal',       away: 'Croacia',              stadium: 'BMO Field',             city: 'Toronto' },
+  { id: 'R32_13', date: '2026-07-03T03:00:00Z', home: 'Suiza',          away: 'Argelia',              stadium: 'Arrowhead Stadium',     city: 'Kansas City' },
+  { id: 'R32_14', date: '2026-07-03T18:00:00Z', home: 'Australia',      away: 'Egipto',               stadium: 'AT&T Stadium',          city: 'Dallas' },
+  { id: 'R32_15', date: '2026-07-03T22:00:00Z', home: 'Argentina',      away: 'Cabo Verde',           stadium: 'Hard Rock Stadium',     city: 'Miami' },
+  { id: 'R32_16', date: '2026-07-04T01:30:00Z', home: 'Colombia',       away: 'Ghana',                stadium: 'Arrowhead Stadium',     city: 'Kansas City' },
 ]
 
 // Fechas aproximadas de octavos (para bloqueo de pronósticos)
