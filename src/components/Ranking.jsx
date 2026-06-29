@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { ALL_USERNAMES } from '../constants/users'
-import { GROUP_MATCHES, KNOCKOUT_ROUNDS, KNOCKOUT_MATCH_DATES } from '../constants/fixture'
+import { GROUP_MATCHES, KNOCKOUT_ROUNDS, KNOCKOUT_MATCH_DATES, R32_FIXTURE } from '../constants/fixture'
 import Bandera from './Bandera'
 
 const MUNDIAL_START = '2026-06-11T16:00:00-03:00'
@@ -301,12 +301,17 @@ export default function Ranking() {
 
       {/* ── ELIMINACIÓN ── */}
       {activeSection === 'knockout' && (() => {
-        // Solo mostrar llaves cuyo horario ya pasó (mismo criterio de bloqueo de pronósticos)
-        const definedMatches = Object.entries(knockoutData).filter(
+        // Partidos bloqueados: combinar R32_FIXTURE (equipos ya definidos) con knockoutData
+        const r32Locked = R32_FIXTURE
+          .filter(f => isKnockoutMatchLocked(f.id))
+          .map(f => [f.id, { home: f.home, away: f.away, ...knockoutData[f.id] }])
+        const otherLocked = Object.entries(knockoutData).filter(
           ([id, data]) =>
             !id.includes('winner') && !id.includes('runner') &&
+            !id.startsWith('R32_') &&
             data.home && isKnockoutMatchLocked(id)
         )
+        const definedMatches = [...r32Locked, ...otherLocked]
         if (definedMatches.length === 0) {
           return (
             <div className="bg-white rounded-2xl shadow p-8 text-center text-gray-400 text-sm">
