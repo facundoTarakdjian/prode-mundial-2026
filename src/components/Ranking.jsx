@@ -321,8 +321,14 @@ export default function Ranking() {
         }
         return (
           <div className="space-y-4">
-            {KNOCKOUT_ROUNDS.map(round => {
-              const matches = definedMatches.filter(([id]) => id.startsWith(round.id + '_'))
+            {[...KNOCKOUT_ROUNDS].reverse().map(round => {
+              const matches = definedMatches
+                .filter(([id]) => id.startsWith(round.id + '_'))
+                .sort(([a], [b]) => {
+                  const da = KNOCKOUT_MATCH_DATES[a] ? new Date(KNOCKOUT_MATCH_DATES[a]) : 0
+                  const db = KNOCKOUT_MATCH_DATES[b] ? new Date(KNOCKOUT_MATCH_DATES[b]) : 0
+                  return db - da
+                })
               if (matches.length === 0) return null
               return (
                 <div key={round.id} className="bg-white rounded-2xl shadow p-4">
