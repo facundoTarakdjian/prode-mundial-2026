@@ -381,14 +381,19 @@ export function AppProvider({ children }) {
     // Persistir equipo ganador en la siguiente llave del bracket
     const prog = BRACKET_PROPAGATION[matchId]
     if (prog && data.winner) {
-      // Leer estado actual via ref para obtener el otro equipo
-      const curNext = knockoutDataRef.current[prog.next] || {}
+      // Leer desde DB para evitar race condition si el admin guarda dos partidos seguidos
+      const { data: curNextRow } = await supabase
+        .from('eliminatorias_reales')
+        .select('home, away, home_goals, away_goals, winner')
+        .eq('match_id', prog.next)
+        .maybeSingle()
+      const curNext = curNextRow || {}
       await supabase.from('eliminatorias_reales').upsert({
         match_id:   prog.next,
         home:       prog.slot === 'home' ? data.winner : (curNext.home || null),
         away:       prog.slot === 'away' ? data.winner : (curNext.away || null),
-        home_goals: curNext.homeGoals != null ? parseInt(curNext.homeGoals) : null,
-        away_goals: curNext.awayGoals != null ? parseInt(curNext.awayGoals) : null,
+        home_goals: curNext.home_goals ?? null,
+        away_goals: curNext.away_goals ?? null,
         winner:     curNext.winner || null,
       }, { onConflict: 'match_id' })
     }

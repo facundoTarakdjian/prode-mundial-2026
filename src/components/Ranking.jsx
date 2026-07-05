@@ -309,7 +309,7 @@ export default function Ranking() {
           ([id, data]) =>
             !id.includes('winner') && !id.includes('runner') &&
             !id.startsWith('R32_') &&
-            data.home && isKnockoutMatchLocked(id)
+            (data.home || data.away) && isKnockoutMatchLocked(id)
         )
         const definedMatches = [...r32Locked, ...otherLocked]
         if (definedMatches.length === 0) {
