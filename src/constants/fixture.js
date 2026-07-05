@@ -181,32 +181,33 @@ export const R32_FIXTURE = [
 ]
 
 // Fixture de octavos de final (M89–M96)
+// Horarios en UTC (Argentina UTC-3)
 export const R16_FIXTURE = [
-  { id: 'R16_1', date: '2026-07-04T22:00:00Z', stadium: 'Lincoln Financial Field', city: 'Philadelphia' }, // M89
-  { id: 'R16_2', date: '2026-07-05T02:00:00Z', stadium: 'NRG Stadium',             city: 'Houston' },       // M90
-  { id: 'R16_3', date: '2026-07-05T22:00:00Z', stadium: 'MetLife Stadium',         city: 'Nueva York/NJ' }, // M91
-  { id: 'R16_4', date: '2026-07-06T00:00:00Z', stadium: 'Estadio Azteca',          city: 'Ciudad de México' }, // M92
-  { id: 'R16_5', date: '2026-07-06T23:00:00Z', stadium: 'AT&T Stadium',            city: 'Dallas' },        // M93
-  { id: 'R16_6', date: '2026-07-07T04:00:00Z', stadium: 'Lumen Field',             city: 'Seattle' },       // M94
-  { id: 'R16_7', date: '2026-07-07T22:00:00Z', stadium: 'Mercedes-Benz Stadium',   city: 'Atlanta' },       // M95
-  { id: 'R16_8', date: '2026-07-08T04:00:00Z', stadium: 'BC Place',                city: 'Vancouver' },     // M96
+  { id: 'R16_1', date: '2026-07-04T21:00:00Z', stadium: 'Lincoln Financial Field', city: 'Philadelphia' }, // Paraguay vs Francia, Sáb 4/7 18:00 AR
+  { id: 'R16_2', date: '2026-07-04T17:00:00Z', stadium: 'NRG Stadium',             city: 'Houston' },       // Canadá vs Marruecos, Sáb 4/7 14:00 AR
+  { id: 'R16_3', date: '2026-07-05T20:00:00Z', stadium: 'MetLife Stadium',         city: 'Nueva York/NJ' }, // Brasil vs Noruega, Dom 5/7 17:00 AR
+  { id: 'R16_4', date: '2026-07-06T00:00:00Z', stadium: 'Estadio Azteca',          city: 'Ciudad de México' }, // México vs Inglaterra, Dom 5/7 21:00 AR
+  { id: 'R16_5', date: '2026-07-06T19:00:00Z', stadium: 'AT&T Stadium',            city: 'Dallas' },        // Portugal vs España, Lun 6/7 16:00 AR
+  { id: 'R16_6', date: '2026-07-06T21:00:00Z', stadium: 'Lumen Field',             city: 'Seattle' },       // USA vs Bélgica, Lun 6/7 18:00 AR
+  { id: 'R16_7', date: '2026-07-07T16:00:00Z', stadium: 'Mercedes-Benz Stadium',   city: 'Atlanta' },       // Argentina vs Egipto, Mar 7/7 13:00 AR
+  { id: 'R16_8', date: '2026-07-07T20:00:00Z', stadium: 'BC Place',                city: 'Vancouver' },     // Suiza vs Colombia, Mar 7/7 17:00 AR
 ]
 
 // Fixture de cuartos de final (M97–M100)
 export const QF_FIXTURE = [
-  { id: 'QF_1', date: '2026-07-09T22:00:00Z', stadium: 'Gillette Stadium',   city: 'Boston' },       // M97
-  { id: 'QF_2', date: '2026-07-11T01:00:00Z', stadium: 'SoFi Stadium',       city: 'Los Angeles' },  // M98
-  { id: 'QF_3', date: '2026-07-11T19:00:00Z', stadium: 'Hard Rock Stadium',  city: 'Miami' },        // M99
-  { id: 'QF_4', date: '2026-07-11T23:00:00Z', stadium: 'Arrowhead Stadium',  city: 'Kansas City' },  // M100
+  { id: 'QF_1', date: '2026-07-09T20:00:00Z', stadium: 'Gillette Stadium',   city: 'Boston' },       // Jue 9/7 17:00 AR
+  { id: 'QF_2', date: '2026-07-10T19:00:00Z', stadium: 'SoFi Stadium',       city: 'Los Angeles' },  // Vie 10/7 16:00 AR
+  { id: 'QF_3', date: '2026-07-11T21:00:00Z', stadium: 'Hard Rock Stadium',  city: 'Miami' },        // Sáb 11/7 18:00 AR
+  { id: 'QF_4', date: '2026-07-12T01:00:00Z', stadium: 'Arrowhead Stadium',  city: 'Kansas City' },  // Sáb 11/7 22:00 AR
 ]
 // Fixture de semifinales (M101–M102)
 export const SF_FIXTURE = [
-  { id: 'SF_1', date: '2026-07-14T23:00:00Z', stadium: 'AT&T Stadium',          city: 'Dallas' },   // M101
-  { id: 'SF_2', date: '2026-07-15T22:00:00Z', stadium: 'Mercedes-Benz Stadium', city: 'Atlanta' },  // M102
+  { id: 'SF_1', date: '2026-07-14T19:00:00Z', stadium: 'AT&T Stadium',          city: 'Dallas' },   // Mar 14/7 16:00 AR
+  { id: 'SF_2', date: '2026-07-15T19:00:00Z', stadium: 'Mercedes-Benz Stadium', city: 'Atlanta' },  // Mié 15/7 16:00 AR
 ]
 // Final (M104)
 export const F_FIXTURE = [
-  { id: 'F_1', date: '2026-07-19T22:00:00Z', stadium: 'MetLife Stadium', city: 'Nueva York/NJ' }, // M104
+  { id: 'F_1', date: '2026-07-19T19:00:00Z', stadium: 'MetLife Stadium', city: 'Nueva York/NJ' }, // Dom 19/7 16:00 AR
 ]
 
 // Lookup rápido matchId → fecha UTC
